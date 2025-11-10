@@ -1,0 +1,514 @@
+{
+  "tutorials-guides": {
+    "name": "Tutorials & Guides",
+    "slug": "tutorials-guides",
+    "description": "Panduan lengkap dan tutorial untuk berbagai game",
+    "icon": "📚",
+    "color": "from-purple-500 to-violet-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "ASM Abakan: Senjata Baru PUBG Mobile Siap Mendominasi Battle",
+        "subtitle": "Panduan lengkap menggunakan senjata terbaru",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Tutorial",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Kembali Dibuka, Inilah Cara Daftar Advance Server Free Fire",
+        "subtitle": "Panduan lengkap mendaftar Advance Server",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Guide",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "3 Senjata Paling Sering Digunakan Pro Player PUBG Mobile",
+        "subtitle": "Tips dari pro player untuk meningkatkan skill",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Tutorial",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "MLBB Lite Link Download Game MLBB Dengan Kapasitas Ringan",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "3 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 2,
+        "title": "Cara Mendapatkan Diamond FF Gratis di Tahun 2025",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "5 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 3,
+        "title": "Pengertian dan Cara Mendapatkan Magic Cube FF",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "4 min",
+        "views": 8700,
+        "trending": false
+      },
+      {
+        "id": 4,
+        "title": "Tips Build Hero Terbaik di Mobile Legends 2025",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "8 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 5,
+        "title": "Cara Setting Grafis Free Fire untuk Performa Terbaik",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "5 min",
+        "views": 11200,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Panduan Lengkap Character Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "8 min",
+        "views": 16700,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Tips Menang di PUBG Mobile untuk Pemula",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "7 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Cara Mendapatkan Primogem Gratis di Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "6 min",
+        "views": 22300,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Panduan Lengkap Artifact Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "12 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Tips Menang di Spiral Abyss Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "9 min",
+        "views": 16700,
+        "trending": true
+      }
+    ]
+  },
+  "news-updates": {
+    "name": "News & Updates",
+    "slug": "news-updates",
+    "description": "Berita terbaru dan update game terkini",
+    "icon": "📰",
+    "color": "from-blue-500 to-indigo-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Mobile Legends M6 World Championship",
+        "subtitle": "ONIC PH Juara Dunia!",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "E-Sports",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "PUBG Mobile Update Terbaru",
+        "subtitle": "Mode Baru: Asymmetric PVP",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Game Update",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Free Fire Advance Server",
+        "subtitle": "Daftar Sekarang!",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Beta Test",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Cara Dapatkan Skin Khufra Cursed Scroll Mobile Legends Gratis",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "5 min",
+        "views": 12500,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Moonton Rilis Skin Juara M6 ONIC PH untuk Joy dan Skin FMVP Beatrix",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "3 min",
+        "views": 8900,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Cara Mendapatkan Galactic Bunny Bundle Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "4 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Event MLBB x Sanrio Kembali Hadir September 2025 Ini",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "6 min",
+        "views": 11200,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "PUBG Mobile Versi 4.0 Hadir dengan Tema Spooky Soiree",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "7 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 6,
+        "title": "PUBG Mobile Umumkan Game Mode Baru Asymmetric PVP UNFAIL",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "5 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 7,
+        "title": "Genshin Impact 4.5 Update: Character Baru Chiori",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "8 min",
+        "views": 25600,
+        "trending": true
+      },
+      {
+        "id": 8,
+        "title": "Valorant Champions 2025: Paper Rex Juara Asia!",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "6 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 9,
+        "title": "Team Falcons Juarai DOTA 2 The International 2025",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "6 min",
+        "views": 25600,
+        "trending": true
+      },
+      {
+        "id": 10,
+        "title": "PMSL SEA Fall 2025, Tim Peserta, Jadwal, dan Format Turnamen",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "8 min",
+        "views": 18900,
+        "trending": false
+      }
+    ]
+  },
+  "esports": {
+    "name": "E-Sports",
+    "slug": "esports",
+    "description": "Berita dan update dunia e-sports",
+    "icon": "🏆",
+    "color": "from-yellow-500 to-orange-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Team Falcons Juarai DOTA 2 The International 2025",
+        "subtitle": "Kemenangan spektakuler di turnamen bergengsi",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "E-Sports",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "PMSL SEA Fall 2025, Tim Peserta, Jadwal, dan Format Turnamen",
+        "subtitle": "Informasi lengkap turnamen PUBG Mobile",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Tournament",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tim Peserta, Jadwal, dan Format Turnamen FFWS SEA Fall 2025",
+        "subtitle": "Turnamen Free Fire World Series",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Tournament",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Team Falcons Juarai DOTA 2 The International 2025",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "6 min",
+        "views": 25600,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "PMSL SEA Fall 2025, Tim Peserta, Jadwal, dan Format Turnamen",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "8 min",
+        "views": 18900,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tim Peserta, Jadwal, dan Format Turnamen FFWS SEA Fall 2025",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "7 min",
+        "views": 14200,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Inilah Tim Peserta, Jadwal, dan Total Hadiah DOTA 2 The International 2025",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "9 min",
+        "views": 31200,
+        "trending": true
+      },
+      {
+        "id": 5,
+        "title": "Kalahkan RRQ, Paper Rex Juarai VCT Pacific Stage 2",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "5 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "EVOS Divine Sabet Gelar Juara Free Fire Esports World Cup 2025",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "6 min",
+        "views": 22300,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Mobile Legends M6 World Championship: ONIC PH Juara Dunia!",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "7 min",
+        "views": 28900,
+        "trending": true
+      },
+      {
+        "id": 8,
+        "title": "Valorant Champions 2025: Paper Rex Juara Asia!",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "6 min",
+        "views": 20100,
+        "trending": false
+      },
+      {
+        "id": 9,
+        "title": "League of Legends World Championship 2025: Format Baru",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "8 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Ragnarok Origin Esports Championship 2025",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "5 min",
+        "views": 13400,
+        "trending": true
+      }
+    ]
+  },
+  "promo-discount": {
+    "name": "Promo & Discount",
+    "slug": "promo-discount",
+    "description": "Promo dan diskon terbaru untuk top up game",
+    "icon": "🎁",
+    "color": "from-red-500 to-pink-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "PSAK-413.com Gelar Event Spesial HUT RI ke-80",
+        "subtitle": "Belanja Rp170.000 Dapat Voucher Rp17.000!",
+        "image": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Promo",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Nikmati Diskon Rp10.000 di PSAK-413 dengan Pembayaran QRIS Neobank",
+        "subtitle": "Diskon khusus untuk pembayaran QRIS",
+        "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Discount",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Liburan Seru Bareng PSAK-413! Ikuti Giveaway dan Menangkan Voucher 30K!",
+        "subtitle": "Giveaway dengan hadiah menarik",
+        "image": "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Giveaway",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "PSAK-413.com Gelar Event Spesial HUT RI ke-80: Belanja Rp170.000 Dapat Voucher Rp17.000!",
+        "image": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "3 min",
+        "views": 34500,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Nikmati Diskon Rp10.000 di PSAK-413 dengan Pembayaran QRIS Neobank",
+        "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "2 min",
+        "views": 18900,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Liburan Seru Bareng PSAK-413! Ikuti Giveaway dan Menangkan Voucher 30K!",
+        "image": "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "4 min",
+        "views": 26700,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Daftar Kode Redeem Genshin Impact Mei 2025",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "3 min",
+        "views": 15600,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Ikuti Giveaway PSAK-413 Spesial Hari Konsumen Nasional 2025",
+        "image": "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "2 min",
+        "views": 19800,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Ikuti Event PSAK-413 Bagi-Bagi THR Hingga 900.000",
+        "image": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "3 min",
+        "views": 28900,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Diskon 20% untuk Top Up Mobile Legends di PSAK-413",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "2 min",
+        "views": 22300,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Cashback 10% untuk Semua Pembelian di PSAK-413",
+        "image": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "2 min",
+        "views": 25600,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Event Spesial Valentine: Beli 2 Gratis 1 di PSAK-413",
+        "image": "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "3 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Promo Weekend: Diskon Hingga 50% untuk Game Favorit",
+        "image": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "2 min",
+        "views": 31200,
+        "trending": true
+      }
+    ]
+  }
+}

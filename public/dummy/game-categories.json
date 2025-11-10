@@ -1,0 +1,1026 @@
+{
+  "mobile-legends": {
+    "name": "Mobile Legends",
+    "slug": "mobile-legends",
+    "description": "Berita, tutorial, dan update terbaru tentang Mobile Legends: Bang Bang",
+    "icon": "🎮",
+    "color": "from-blue-500 to-indigo-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "ASM Abakan: Senjata Baru PUBG Mobile Siap Mendominasi Battle",
+        "subtitle": "Senjata terbaru dengan performa luar biasa",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Game Update",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "PENDAFTARAN ADVANCE SERVER DIBUKA!",
+        "subtitle": "Kembali Dibuka, Inilah Cara Daftar Advance Server Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-03",
+        "category": "Beta Test",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "3 Senjata Paling Sering Digunakan Pro Player PUBG Mobile",
+        "subtitle": "Tips dari pro player untuk meningkatkan skill",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "category": "Tutorial",
+        "trending": false
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "MLBB Lite Link Download Game MLBB Dengan Kapasitas Ringan",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "3 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 2,
+        "title": "Cara Dapatkan Skin Khufra Cursed Scroll Mobile Legends Gratis",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "5 min",
+        "views": 12500,
+        "trending": true
+      },
+      {
+        "id": 3,
+        "title": "Moonton Rilis Skin Juara M6 ONIC PH untuk Joy dan Skin FMVP Beatrix",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "3 min",
+        "views": 8900,
+        "trending": false
+      },
+      {
+        "id": 4,
+        "title": "Event MLBB x Sanrio Kembali Hadir September 2025 Ini",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "6 min",
+        "views": 11200,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Tips Build Hero Terbaik di Mobile Legends 2025",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "8 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 6,
+        "title": "Cara Mendapatkan Diamond MLBB Gratis dengan Mudah",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "4 min",
+        "views": 18900,
+        "trending": false
+      },
+      {
+        "id": 7,
+        "title": "Ranking Hero Terkuat di Mobile Legends Patch Terbaru",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "7 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Event Skin Limited Edition Mobile Legends Januari 2025",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "5 min",
+        "views": 16700,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Cara Counter Hero Meta di Mobile Legends",
+        "image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "6 min",
+        "views": 9800,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes Mobile Legends Terbaru",
+        "image": "https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "4 min",
+        "views": 14500,
+        "trending": false
+      }
+    ]
+  },
+  "free-fire": {
+    "name": "Free Fire",
+    "slug": "free-fire",
+    "description": "Berita, tutorial, dan update terbaru tentang Garena Free Fire",
+    "icon": "🔥",
+    "color": "from-orange-500 to-red-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Cara Mendapatkan Diamond FF Gratis di Tahun 2025",
+        "subtitle": "Tips dan trik mendapatkan diamond gratis",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Tutorial",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Pengertian dan Cara Mendapatkan Magic Cube FF",
+        "subtitle": "Panduan lengkap Magic Cube Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Guide",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Cara Mendapatkan Galactic Bunny Bundle Free Fire",
+        "subtitle": "Bundle eksklusif dengan skin terbaru",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Event",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Cara Mendapatkan Diamond FF Gratis di Tahun 2025",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "5 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Pengertian dan Cara Mendapatkan Magic Cube FF",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "4 min",
+        "views": 8700,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Cara Mendapatkan Galactic Bunny Bundle Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "4 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Kembali Dibuka, Inilah Cara Daftar Advance Server Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "4 min",
+        "views": 9800,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Tips Menang di Free Fire dengan Mudah",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "6 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Skin Terbaru Free Fire yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "3 min",
+        "views": 17800,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Cara Setting Grafis Free Fire untuk Performa Terbaik",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "5 min",
+        "views": 11200,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Event Spesial Free Fire Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "4 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 9,
+        "title": "Panduan Lengkap Character Free Fire",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "8 min",
+        "views": 16700,
+        "trending": true
+      },
+      {
+        "id": 10,
+        "title": "Cara Mendapatkan Pet Free Fire Gratis",
+        "image": "https://images.unsplash.com/photo-1556438064-2d7646166914?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "3 min",
+        "views": 9800,
+        "trending": false
+      }
+    ]
+  },
+  "pubg": {
+    "name": "PUBG Mobile",
+    "slug": "pubg",
+    "description": "Berita, tutorial, dan update terbaru tentang PUBG Mobile",
+    "icon": "🎯",
+    "color": "from-[#C02628] to-emerald-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "ASM Abakan: Senjata Baru PUBG Mobile Siap Mendominasi Battle",
+        "subtitle": "Senjata terbaru dengan performa luar biasa",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Game Update",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "3 Senjata Paling Sering Digunakan Pro Player PUBG Mobile",
+        "subtitle": "Tips dari pro player untuk meningkatkan skill",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Tutorial",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "PUBG Mobile Versi 4.0 Hadir dengan Tema Spooky Soiree",
+        "subtitle": "Update terbaru dengan tema Halloween",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Update",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "ASM Abakan: Senjata Baru PUBG Mobile Siap Mendominasi Battle",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "8 min",
+        "views": 16700,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "PUBG Mobile Versi 4.0 Hadir dengan Tema Spooky Soiree",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "7 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 3,
+        "title": "PUBG Mobile Umumkan Game Mode Baru Asymmetric PVP UNFAIL",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "5 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 4,
+        "title": "3 Senjata Paling Sering Digunakan Pro Player PUBG Mobile",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "6 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Tips Menang di PUBG Mobile untuk Pemula",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "7 min",
+        "views": 11200,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Skin Terbaru PUBG Mobile yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "4 min",
+        "views": 17800,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Cara Setting Grafis PUBG Mobile untuk Performa Terbaik",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "5 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Event Spesial PUBG Mobile Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "3 min",
+        "views": 15600,
+        "trending": false
+      },
+      {
+        "id": 9,
+        "title": "Panduan Lengkap Map PUBG Mobile",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "9 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 10,
+        "title": "Cara Mendapatkan UC PUBG Mobile Gratis",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "4 min",
+        "views": 13400,
+        "trending": false
+      }
+    ]
+  },
+  "genshin-impact": {
+    "name": "Genshin Impact",
+    "slug": "genshin-impact",
+    "description": "Berita, tutorial, dan update terbaru tentang Genshin Impact",
+    "icon": "⚡",
+    "color": "from-purple-500 to-pink-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Genshin Impact 4.5 Update: Character Baru Chiori",
+        "subtitle": "Character terbaru dengan kemampuan unik",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Game Update",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Daftar Kode Redeem Genshin Impact Mei 2025",
+        "subtitle": "Kode redeem terbaru untuk mendapatkan primogem",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Redeem Code",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Build Character Terbaik di Genshin Impact",
+        "subtitle": "Panduan lengkap build character",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Guide",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Genshin Impact 4.5 Update: Character Baru Chiori",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "8 min",
+        "views": 25600,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Daftar Kode Redeem Genshin Impact Mei 2025",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "3 min",
+        "views": 15600,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Build Character Terbaik di Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "10 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Cara Mendapatkan Primogem Gratis di Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "6 min",
+        "views": 22300,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Event Spesial Genshin Impact Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "5 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Panduan Lengkap Artifact Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "12 min",
+        "views": 14500,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Tips Menang di Spiral Abyss Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "9 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Character Tier List Genshin Impact Terbaru",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "7 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Cara Farming Material Character di Genshin Impact",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "8 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes Genshin Impact Terbaru",
+        "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "4 min",
+        "views": 18900,
+        "trending": false
+      }
+    ]
+  },
+  "valorant": {
+    "name": "Valorant",
+    "slug": "valorant",
+    "description": "Berita, tutorial, dan update terbaru tentang Valorant",
+    "icon": "🎯",
+    "color": "from-red-500 to-orange-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Valorant Champions 2025: Paper Rex Juara Asia!",
+        "subtitle": "Kemenangan spektakuler di turnamen bergengsi",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "E-Sports",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Agent Baru Valorant: Clove",
+        "subtitle": "Agent controller dengan kemampuan unik",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Game Update",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Menang di Valorant untuk Pemula",
+        "subtitle": "Panduan lengkap untuk pemain baru",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Tutorial",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Valorant Champions 2025: Paper Rex Juara Asia!",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "6 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Agent Baru Valorant: Clove",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "5 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Menang di Valorant untuk Pemula",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "8 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Panduan Lengkap Map Valorant",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "10 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Skin Terbaru Valorant yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "4 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 6,
+        "title": "Cara Setting Grafis Valorant untuk Performa Terbaik",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "6 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 7,
+        "title": "Event Spesial Valorant Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "3 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Agent Tier List Valorant Terbaru",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "7 min",
+        "views": 14500,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Cara Mendapatkan VP Valorant Gratis",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "5 min",
+        "views": 20100,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes Valorant Terbaru",
+        "image": "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "4 min",
+        "views": 17800,
+        "trending": false
+      }
+    ]
+  },
+  "ragnarok": {
+    "name": "Ragnarok",
+    "slug": "ragnarok",
+    "description": "Berita, tutorial, dan update terbaru tentang Ragnarok",
+    "icon": "⚔️",
+    "color": "from-amber-500 to-yellow-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "Ragnarok Origin Esports Championship 2025",
+        "subtitle": "Turnamen bergengsi dengan hadiah fantastis",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "E-Sports",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Game MMORPG Legendaris Ragnarok Origin Resmi Dirilis",
+        "subtitle": "Kembali dengan grafis dan gameplay terbaru",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Game Release",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Build Character Terbaik di Ragnarok Origin",
+        "subtitle": "Panduan lengkap build character",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Guide",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "Ragnarok Origin Esports Championship 2025",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "5 min",
+        "views": 13400,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Game MMORPG Legendaris Ragnarok Origin Resmi Dirilis",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "4 min",
+        "views": 18900,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Build Character Terbaik di Ragnarok Origin",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "8 min",
+        "views": 15600,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Panduan Lengkap Class Ragnarok Origin",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "12 min",
+        "views": 12300,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Event Spesial Ragnarok Origin Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "3 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Cara Mendapatkan Zeny Ragnarok Origin Gratis",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "6 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Panduan Farming Item Langka di Ragnarok Origin",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "9 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Guild War Ragnarok Origin: Tips dan Strategi",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "7 min",
+        "views": 17800,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Skin Terbaru Ragnarok Origin yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "4 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes Ragnarok Origin Terbaru",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "5 min",
+        "views": 16700,
+        "trending": false
+      }
+    ]
+  },
+  "league-of-legends": {
+    "name": "League of Legends",
+    "slug": "league-of-legends",
+    "description": "Berita, tutorial, dan update terbaru tentang League of Legends",
+    "icon": "🏆",
+    "color": "from-blue-500 to-cyan-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "League of Legends World Championship 2025: Format Baru",
+        "subtitle": "Format turnamen yang lebih menarik dan kompetitif",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "E-Sports",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Champion Baru League of Legends: Smolder",
+        "subtitle": "Champion ADC dengan kemampuan unik",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Game Update",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Menang di League of Legends untuk Pemula",
+        "subtitle": "Panduan lengkap untuk pemain baru",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Tutorial",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "League of Legends World Championship 2025: Format Baru",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "8 min",
+        "views": 16700,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Champion Baru League of Legends: Smolder",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "6 min",
+        "views": 20100,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Tips Menang di League of Legends untuk Pemula",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "10 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Panduan Lengkap Champion League of Legends",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "15 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Event Spesial League of Legends Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "4 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Cara Mendapatkan RP League of Legends Gratis",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "5 min",
+        "views": 22300,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Panduan Farming Blue Essence di League of Legends",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "7 min",
+        "views": 15600,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Skin Terbaru League of Legends yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "6 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 9,
+        "title": "Ranked Guide League of Legends: Tips Naik Rank",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "12 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes League of Legends Terbaru",
+        "image": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "5 min",
+        "views": 18900,
+        "trending": false
+      }
+    ]
+  },
+  "hd-island": {
+    "name": "HD Island",
+    "slug": "hd-island",
+    "description": "Berita, tutorial, dan update terbaru tentang HD Island",
+    "icon": "🏝️",
+    "color": "from-teal-500 to-green-600",
+    "heroContent": [
+      {
+        "id": 1,
+        "title": "HD Island Update Terbaru: Fitur Baru yang Menarik",
+        "subtitle": "Update dengan fitur-fitur terbaru yang menarik",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=400&fit=crop&crop=center",
+        "date": "2025-01-16",
+        "category": "Game Update",
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Tips Menang di HD Island untuk Pemula",
+        "subtitle": "Panduan lengkap untuk pemain baru",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "category": "Tutorial",
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Event Spesial HD Island Bulan Januari 2025",
+        "subtitle": "Event dengan hadiah menarik",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=200&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "category": "Event",
+        "trending": true
+      }
+    ],
+    "content": [
+      {
+        "id": 1,
+        "title": "HD Island Update Terbaru: Fitur Baru yang Menarik",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-15",
+        "readTime": "5 min",
+        "views": 12300,
+        "trending": true
+      },
+      {
+        "id": 2,
+        "title": "Tips Menang di HD Island untuk Pemula",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-14",
+        "readTime": "7 min",
+        "views": 15600,
+        "trending": false
+      },
+      {
+        "id": 3,
+        "title": "Event Spesial HD Island Bulan Januari 2025",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-13",
+        "readTime": "3 min",
+        "views": 18900,
+        "trending": true
+      },
+      {
+        "id": 4,
+        "title": "Panduan Lengkap Gameplay HD Island",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-12",
+        "readTime": "9 min",
+        "views": 13400,
+        "trending": false
+      },
+      {
+        "id": 5,
+        "title": "Cara Mendapatkan Item Langka di HD Island",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-11",
+        "readTime": "6 min",
+        "views": 16700,
+        "trending": false
+      },
+      {
+        "id": 6,
+        "title": "Skin Terbaru HD Island yang Wajib Dimiliki",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-10",
+        "readTime": "4 min",
+        "views": 20100,
+        "trending": true
+      },
+      {
+        "id": 7,
+        "title": "Tips Farming Gold di HD Island",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-09",
+        "readTime": "8 min",
+        "views": 14500,
+        "trending": false
+      },
+      {
+        "id": 8,
+        "title": "Guild System HD Island: Panduan Lengkap",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-08",
+        "readTime": "10 min",
+        "views": 17800,
+        "trending": false
+      },
+      {
+        "id": 9,
+        "title": "PvP Guide HD Island: Tips Menang Duel",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-07",
+        "readTime": "11 min",
+        "views": 12300,
+        "trending": true
+      },
+      {
+        "id": 10,
+        "title": "Update Patch Notes HD Island Terbaru",
+        "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=250&fit=crop&crop=center",
+        "date": "2025-01-06",
+        "readTime": "4 min",
+        "views": 15600,
+        "trending": false
+      }
+    ]
+  }
+}

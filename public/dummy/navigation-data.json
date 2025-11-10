@@ -1,0 +1,288 @@
+{
+  "sideNav": {
+    "navigationLinks": [
+      {
+        "id": 1,
+        "href": "/produk",
+        "icon": "Search",
+        "label": "Cari Game",
+        "description": "Temukan game favorit Anda"
+      },
+      {
+        "id": 2,
+        "href": "/news",
+        "icon": "Newspaper",
+        "label": "Berita dan Promo",
+        "description": "Update terbaru dan promo menarik"
+      },
+      {
+        "id": 3,
+        "href": "/syarat-ketentuan",
+        "icon": "AlertCircle",
+        "label": "Syarat & Ketentuan",
+        "description": "Ketentuan penggunaan layanan"
+      },
+      {
+        "id": 4,
+        "href": "/riwayat",
+        "icon": "Ticket",
+        "label": "Riwayat Order",
+        "description": "Lihat riwayat pembelian Anda"
+      }
+    ],
+    "helpSupport": {
+      "title": "HELP & SUPPORT",
+      "contacts": [
+        {
+          "type": "email",
+          "icon": "Mail",
+          "label": "Customer Service",
+          "value": "cs@kiostetta.com",
+          "description": "Bantuan 24/7 untuk pelanggan"
+        }
+      ]
+    },
+    "partnerships": {
+      "title": "PARTNERSHIPS",
+      "contacts": [
+        {
+          "type": "email",
+          "icon": "Mail",
+          "label": "Partnership",
+          "value": "partnerships@kiostetta.com",
+          "description": "Kerjasama bisnis dan kolaborasi"
+        }
+      ]
+    },
+    "socialMedia": {
+      "title": "SOCIAL MEDIA",
+      "platforms": [
+        {
+          "name": "Facebook",
+          "icon": "Facebook",
+          "url": "https://facebook.com/tokogame",
+          "color": "bg-blue-600",
+          "description": "Follow kami di Facebook"
+        },
+        {
+          "name": "Instagram",
+          "icon": "Instagram",
+          "url": "https://instagram.com/tokogame",
+          "color": "bg-gradient-to-br from-purple-500 to-pink-500",
+          "description": "Follow kami di Instagram"
+        },
+        {
+          "name": "TikTok",
+          "icon": "Music",
+          "url": "https://tiktok.com/@tokogame",
+          "color": "bg-black",
+          "description": "Follow kami di TikTok"
+        },
+        {
+          "name": "Twitter",
+          "icon": "Twitter",
+          "url": "https://twitter.com/tokogame",
+          "color": "bg-blue-400",
+          "description": "Follow kami di Twitter"
+        },
+        {
+          "name": "YouTube",
+          "icon": "Youtube",
+          "url": "https://youtube.com/@tokogame",
+          "color": "bg-red-600",
+          "description": "Subscribe channel YouTube kami"
+        }
+      ]
+    },
+    "downloadApp": {
+      "title": "DOWNLOAD ANDROID APP",
+      "apps": [
+        {
+          "name": "Google Play Store",
+          "icon": "Play",
+          "url": "https://play.google.com/store/apps/details?id=com.tokogame.app",
+          "description": "Download di Google Play Store",
+          "buttonText": "GET IT ON",
+          "storeName": "Google Play"
+        }
+      ]
+    },
+    "region": {
+      "title": "REGION",
+      "current": {
+        "country": "Indonesia",
+        "currency": "Rp",
+        "flag": "🇮🇩",
+        "code": "ID"
+      },
+      "available": [
+        {
+          "country": "Indonesia",
+          "currency": "Rp",
+          "flag": "🇮🇩",
+          "code": "ID",
+          "active": true
+        },
+        {
+          "country": "Malaysia",
+          "currency": "RM",
+          "flag": "🇲🇾",
+          "code": "MY",
+          "active": false
+        },
+        {
+          "country": "Singapore",
+          "currency": "S$",
+          "flag": "🇸🇬",
+          "code": "SG",
+          "active": false
+        }
+      ]
+    }
+  },
+  "footer": {
+    "companyInfo": {
+      "name": "kiostetta.com",
+      "tagline": "Top Up Games & Voucher Murah, Aman, Cepat",
+      "logo": {
+        "text": "T",
+        "color": "bg-[#C02628]"
+      },
+      "copyright": "Copyright © 2025 PSAK-413 All Rights Reserved"
+    },
+    "socialMedia": [
+      {
+        "name": "Facebook",
+        "icon": "Facebook",
+        "url": "https://facebook.com/tokogame",
+        "color": "bg-[#C02628]",
+        "description": "Follow kami di Facebook"
+      },
+      {
+        "name": "Instagram",
+        "icon": "Instagram",
+        "url": "https://instagram.com/tokogame",
+        "color": "bg-[#C02628]",
+        "description": "Follow kami di Instagram"
+      },
+      {
+        "name": "TikTok",
+        "icon": "Music",
+        "url": "https://tiktok.com/@tokogame",
+        "color": "bg-[#C02628]",
+        "description": "Follow kami di TikTok"
+      },
+      {
+        "name": "YouTube",
+        "icon": "Youtube",
+        "url": "https://youtube.com/@tokogame",
+        "color": "bg-[#C02628]",
+        "description": "Subscribe channel YouTube kami"
+      },
+      {
+        "name": "Twitter",
+        "icon": "Twitter",
+        "url": "https://twitter.com/tokogame",
+        "color": "bg-[#C02628]",
+        "description": "Follow kami di Twitter"
+      }
+    ],
+    "siteMap": {
+      "title": "Site Map",
+      "links": [
+        {
+          "name": "News & Promos",
+          "href": "/news",
+          "description": "Berita dan promo terbaru"
+        },
+        {
+          "name": "Search Games",
+          "href": "/produk",
+          "description": "Cari game favorit Anda"
+        },
+        {
+          "name": "Terms",
+          "href": "/syarat-ketentuan",
+          "description": "Syarat dan ketentuan"
+        }
+      ]
+    },
+    "contactInfo": {
+      "title": "Kontak Kami",
+      "contacts": [
+        {
+          "type": "email",
+          "icon": "Mail",
+          "label": "Customer Service",
+          "value": "cs@kiostetta.com",
+          "description": "Bantuan 24/7 untuk pelanggan"
+        },
+        {
+          "type": "email",
+          "icon": "Mail",
+          "label": "Partnership",
+          "value": "partnerships@kiostetta.com",
+          "description": "Kerjasama bisnis dan kolaborasi"
+        },
+        {
+          "type": "phone",
+          "icon": "Phone",
+          "label": "Hotline",
+          "value": "+62 812-3456-7890",
+          "description": "Telepon langsung"
+        }
+      ]
+    },
+    "region": {
+      "title": "Region",
+      "current": {
+        "country": "Indonesia",
+        "currency": "Rp",
+        "flag": "🇮🇩",
+        "code": "ID"
+      }
+    },
+    "downloadApp": {
+      "title": "Download App",
+      "apps": [
+        {
+          "name": "Google Play Store",
+          "icon": "Play",
+          "url": "https://play.google.com/store/apps/details?id=com.tokogame.app",
+          "description": "Download di Google Play Store",
+          "buttonText": "GET IT ON",
+          "storeName": "Google Play",
+          "color": "bg-black"
+        }
+      ]
+    },
+    "chatSupport": {
+      "title": "Customer Care",
+      "botName": "PSAK-413 Customer Care",
+      "status": "Online",
+      "channels": [
+        {
+          "name": "WhatsApp",
+          "icon": "MessageSquare",
+          "url": "https://wa.me/6281234567890",
+          "color": "bg-[#C02628]",
+          "description": "Chat via WhatsApp"
+        },
+        {
+          "name": "Instagram",
+          "icon": "Instagram",
+          "url": "https://instagram.com/tokogame",
+          "color": "bg-gradient-to-br from-purple-500 to-pink-500",
+          "description": "DM via Instagram"
+        },
+        {
+          "name": "Facebook Messenger",
+          "icon": "MessageSquare",
+          "url": "https://m.me/tokogame",
+          "color": "bg-blue-500",
+          "description": "Chat via Facebook Messenger"
+        }
+      ]
+    }
+  }
+}
