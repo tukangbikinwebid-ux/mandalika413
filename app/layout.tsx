@@ -16,7 +16,8 @@ const RussoOneMono = Russo_One({
 
 export const metadata: Metadata = {
   title: "PSAK-413",
-  description: "Top Up Games & Voucher Murah, Aman, Cepat",
+  description:
+    "Proses ECL, penyesuaian saldo/pinjaman, dan posting GL sesuai PSAK-413 dengan rekonsiliasi real-time.",
 };
 
 export default function RootLayout({
