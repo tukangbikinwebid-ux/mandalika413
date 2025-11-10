@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Home, Zap, User, ChevronDown } from "lucide-react";
+import { LogOut, Home, Zap, User, ChevronDown, ChartArea } from "lucide-react";
 
 const handleLogout = () => {
   alert("Logout");
@@ -24,6 +24,7 @@ export default function Header({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Home, href: "/" },
     { id: "process", label: "Process", icon: Zap, href: "/process" },
+    { id: "post-gl", label: "Posting GL", icon: ChartArea, href: "/post-gl" },
   ] as const;
 
   // Helper: tentukan active berdasar URL

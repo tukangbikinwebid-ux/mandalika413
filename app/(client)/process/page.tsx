@@ -338,8 +338,8 @@ export default function ProcessPage() {
               <thead className="bg-gradient-to-r from-yellow-50 to-amber-50/60">
                 <tr className="text-left text-sm font-semibold text-gray-700">
                   <th className="w-16 px-4 py-3">No</th>
-                  <th className="px-4 py-3">Judul</th>
-                  <th className="px-4 py-3">Deskripsi</th>
+                  <th className="px-4 py-3">Produk</th>
+                  <th className="px-4 py-3">Nilai</th>
                   <th className="w-32 px-4 py-3">Status</th>
                 </tr>
               </thead>
