@@ -161,33 +161,33 @@ export default function Dashboard() {
       icon: DollarSign,
       gradient: "from-yellow-400 to-orange-500",
     },
-    {
-      title: "Movement (Month)",
-      amount: rupiah(8_500_000_000),
-      cents: "",
-      change: "+6.3%",
-      isPositive: true,
-      icon: TrendingUp,
-      gradient: "from-green-400 to-emerald-500",
-    },
-    {
-      title: "Write-off Impact",
-      amount: rupiah(6_222_000_000),
-      cents: "",
-      change: "-2.4%",
-      isPositive: false,
-      icon: TrendingDown,
-      gradient: "from-orange-400 to-red-500",
-    },
-    {
-      title: "Coverage Ratio",
-      amount: "112.4%",
-      cents: "",
-      change: "+0.4%",
-      isPositive: true,
-      icon: PieIcon,
-      gradient: "from-amber-400 to-yellow-500",
-    },
+    // {
+    //   title: "Movement (Month)",
+    //   amount: rupiah(8_500_000_000),
+    //   cents: "",
+    //   change: "+6.3%",
+    //   isPositive: true,
+    //   icon: TrendingUp,
+    //   gradient: "from-green-400 to-emerald-500",
+    // },
+    // {
+    //   title: "Write-off Impact",
+    //   amount: rupiah(6_222_000_000),
+    //   cents: "",
+    //   change: "-2.4%",
+    //   isPositive: false,
+    //   icon: TrendingDown,
+    //   gradient: "from-orange-400 to-red-500",
+    // },
+    // {
+    //   title: "Coverage Ratio",
+    //   amount: "112.4%",
+    //   cents: "",
+    //   change: "+0.4%",
+    //   isPositive: true,
+    //   icon: PieIcon,
+    //   gradient: "from-amber-400 to-yellow-500",
+    // },
   ] as const;
 
   /* ====== Chart.js data & options ====== */
@@ -573,7 +573,7 @@ export default function Dashboard() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 my-8">
+      <div className="grid grid-cols-1 gap-6 my-8">
         <Card title="Top 5 Expected Credit Loss by Product">
           <div className="h-96 w-full overflow-x-auto">
             <div className="min-w-[820px] h-full">
@@ -581,211 +581,6 @@ export default function Dashboard() {
             </div>
           </div>
         </Card>
-
-        <Card title="Top 10 Expected Credit Loss by TRA">
-          <div className="h-96 w-full overflow-x-auto">
-            <div className="min-w-[900px] h-full">
-              <Bar data={dataTop10TRA} options={optionsTop10TRA} />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* ================== BAGIAN YANG DI-SCREENSHOT: BANK-ONLY ================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ECL Composition (Donut) */}
-        <div className="bg-white rounded-3xl p-8 shadow-lg border-2 border-orange-100">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500">
-                <PieIcon className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900">
-                ECL Composition (Provision)
-              </h3>
-            </div>
-            <button className="p-2 rounded-full hover:bg-orange-50 transition-colors transform hover:rotate-45">
-              <ArrowUpRight className="w-5 h-5 text-orange-600" />
-            </button>
-          </div>
-
-          {/* Donut ECL Composition */}
-          <div className="relative w-56 h-56 mx-auto mb-6">
-            <Doughnut
-              data={{
-                labels: ["Stage 1", "Stage 2", "Stage 3"],
-                datasets: [
-                  {
-                    data: STAGES.map((s) => s.value),
-                    backgroundColor: STAGES.map((s) => s.color),
-                    borderWidth: 0,
-                  },
-                ],
-              }}
-              options={{
-                maintainAspectRatio: false,
-                cutout: "68%",
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: (ctx) =>
-                        `${ctx.label}: ${rupiah(Number(ctx.parsed))}`,
-                    },
-                  },
-                },
-              }}
-            />
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[11px] font-semibold text-gray-500">
-                Total ECL
-              </span>
-              <span className="text-3xl font-black text-orange-600">
-                {rupiah(STAGES.reduce((a, b) => a + b.value, 0))
-                  .replace("Rp", "")
-                  .trim()}
-              </span>
-              <span className="text-lg font-bold text-gray-400">Rp</span>
-            </div>
-          </div>
-
-          {/* Legend bank-style */}
-          <div className="space-y-3">
-            {[
-              {
-                name: "Stage 1 (12 Months)",
-                value: STAGES[0].value,
-                dot: "bg-[#7CB5FF]",
-              },
-              {
-                name: "Stage 2 (Lifetime - SICR)",
-                value: STAGES[1].value,
-                dot: "bg-[#374151]",
-              },
-              // {
-              //   name: "Stage 3 (Impaired)",
-              //   value: STAGES[2].value,
-              //   dot: "bg-[#86EFAC]",
-              // },
-            ].map((row, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-orange-50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${row.dot} shadow-md`}
-                  />
-                  <span className="text-sm font-semibold text-gray-700">
-                    {row.name}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-gray-500">
-                  {rupiah(row.value)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent ECL Movements (Bank) */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-lg border-2 border-orange-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-black text-gray-900">
-              Recent ECL Movements
-            </h3>
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 bg-orange-50 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-colors flex items-center gap-2 border border-orange-200">
-                <Filter className="w-4 h-4" />
-                All branches
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <button className="px-4 py-2 text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1 hover:bg-orange-50 rounded-xl">
-                See all
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Header tabel bank-style */}
-          <div className="grid grid-cols-12 gap-4 pb-4 mb-4 border-b-2 border-orange-100">
-            <div className="col-span-2 text-xs font-black text-orange-600 uppercase tracking-wider">
-              Date
-            </div>
-            <div className="col-span-2 text-xs font-black text-orange-600 uppercase tracking-wider">
-              Amount (Rp)
-            </div>
-            <div className="col-span-3 text-xs font-black text-orange-600 uppercase tracking-wider">
-              Branch / Product
-            </div>
-            <div className="col-span-2 text-xs font-black text-orange-600 uppercase tracking-wider">
-              GL / Stage
-            </div>
-            <div className="col-span-3 text-xs font-black text-orange-600 uppercase tracking-wider">
-              Segment
-            </div>
-          </div>
-
-          {/* Rows contoh perbankan */}
-          <div className="space-y-2">
-            {[
-              {
-                date: "30 Sep 10:20",
-                amount: 4_250_000_000,
-                branch: "010 – CABANG UTAMA",
-                product: "K001 – KMK Biasa",
-                gl: "GL 001 / Stage 1",
-                segment: "Modal Kerja",
-                badge: "bg-blue-50 border-blue-200",
-              },
-              {
-                date: "30 Sep 09:45",
-                amount: 1_950_000_000,
-                branch: "060 – CABANG 02",
-                product: "K002 – KPR Subsidi",
-                gl: "GL 002 / Stage 2",
-                segment: "Konsumer",
-                badge: "bg-amber-50 border-amber-200",
-              },
-              {
-                date: "29 Sep 16:05",
-                amount: 820_000_000,
-                branch: "500 – CABANG 03",
-                product: "K003 – KUR Baru",
-                gl: "GL 003 / Stage 3",
-                segment: "KUR",
-                badge: "bg-emerald-50 border-emerald-200",
-              },
-            ].map((row, idx) => (
-              <div
-                key={idx}
-                className={`grid grid-cols-12 gap-4 p-4 rounded-2xl hover:bg-orange-50 transition-all group border-2 ${row.badge}`}
-              >
-                <div className="col-span-2 flex items-center text-sm font-semibold text-gray-600">
-                  {row.date}
-                </div>
-                <div className="col-span-2 flex items-center gap-2 text-sm font-black text-gray-900">
-                  <Banknote className="w-4 h-4 text-orange-600" />
-                  {rupiah(row.amount)}
-                </div>
-                <div className="col-span-3 flex flex-col">
-                  <span className="text-sm font-bold text-gray-900">
-                    {row.branch}
-                  </span>
-                  <span className="text-xs font-medium text-gray-500">
-                    {row.product}
-                  </span>
-                </div>
-                <div className="col-span-2 flex items-center text-sm font-semibold text-gray-700">
-                  {row.gl}
-                </div>
-                <div className="col-span-3 flex items-center text-sm font-semibold text-gray-700">
-                  {row.segment}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Manage & Add Widget Modals (dipertahankan) */}

@@ -14,7 +14,7 @@ const TOTAL_ROWS = 40;
 const BASE_ROWS: Row[] = Array.from({ length: TOTAL_ROWS }, (_, i) => ({
   no: i + 1,
   title: `Title ${i + 1}`,
-  description: `Description for item ${i + 1}`,
+  description: `nilai dalam nominal ${i + 1}`,
   status: "Pending",
 }));
 
