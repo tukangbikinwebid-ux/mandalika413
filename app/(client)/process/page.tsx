@@ -24,12 +24,10 @@ type BankingRow = {
   persenMargin: number;
   dayPastDue: number;
   
-  // Variabel Hitung (Input)
   pd: number;   // Q (Probability of Default)
   lgd: number;  // R (Loss Given Default)
   ead: number;  // S (Exposure at Default)
   
-  // Hasil Hitung (Output)
   psak413: number; 
   
   status: "Pending" | "Processing" | "Done";
