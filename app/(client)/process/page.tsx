@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 
-// Definisikan tipe data sesuai kolom Excel
+// Definisi Tipe Data Lengkap Sesuai Kolom Excel
 type BankingRow = {
   id: number;
+  // Data Mentah dari Excel
   kodeCabang: string;
   noRekening: string;
   akad: string;
@@ -19,64 +21,41 @@ type BankingRow = {
   totalOutstanding: number;
   noCif: string;
   namaProduk: string;
-  persenMargin: number; // Dalam desimal (e.g. 0.125)
+  persenMargin: number;
   dayPastDue: number;
-  pd: number; // Probability of Default (desimal)
-  lgd: number; // Loss Given Default (desimal)
-  ead: number; // Exposure at Default
-  psak413: number; // Hasil hitung
+  
+  // Variabel Hitung (Input)
+  pd: number;   // Q (Probability of Default)
+  lgd: number;  // R (Loss Given Default)
+  ead: number;  // S (Exposure at Default)
+  
+  // Hasil Hitung (Output)
+  psak413: number; 
+  
   status: "Pending" | "Processing" | "Done";
 };
 
-const TOTAL_ROWS = 40;
+// --- Helper Functions ---
 
-// Generator data dummy
-const BASE_ROWS: BankingRow[] = Array.from({ length: TOTAL_ROWS }, (_, i) => {
-  // Randomizer sederhana untuk variasi data
-  const plafond = 30000000 + Math.floor(Math.random() * 50000000);
-  const pokokSisa = Math.floor(plafond * (Math.random() * 0.8));
-  const marginSisa = Math.floor(pokokSisa * 0.1);
-  const totalOutstanding = pokokSisa + marginSisa;
-  const ead = pokokSisa; // Asumsi EAD = Pokok Sisa untuk contoh
-  const pd = 0.025; // 2.50%
-  const lgd = 0.8899; // 88.99%
+// 1. Parser Angka Indonesia (cth: "50.000.000,00" -> 50000000)
+const parseIndonesianNumber = (val: string | number | undefined): number => {
+  if (typeof val === "number") return val;
+  if (!val) return 0;
+  // Hapus titik ribuan, ganti koma desimal jadi titik
+  const cleanStr = val.toString().replace(/\./g, "").replace(",", ".");
+  return parseFloat(cleanStr) || 0;
+};
 
-  // RUMUS: PD * LGD * EAD
-  const psak413 = pd * lgd * ead;
+// 2. Parser Persen Indonesia (cth: "2,50%" -> 0.025)
+const parseIndonesianPercent = (val: string | number | undefined): number => {
+  if (typeof val === "number") return val < 1 ? val : val / 100; 
+  if (!val) return 0;
+  const cleanStr = val.toString().replace("%", "").replace(",", ".");
+  const num = parseFloat(cleanStr);
+  return num ? num / 100 : 0; 
+};
 
-  return {
-    id: i + 1,
-    kodeCabang: "001",
-    noRekening: `1608000${(71 + i * 10).toString().padStart(4, "0")}`,
-    akad: "01",
-    namaNasabah: [
-      "MAHSUN",
-      "HENDRO MARTONO",
-      "PT. NUSA BAKTI",
-      "SUJIMAN",
-      "SAKDUL FATHI",
-    ][i % 5],
-    alamatNasabah: `Jalan Raya No ${i + 1}`,
-    kodeProduk: "MUR01",
-    startDate: "20/10/2020",
-    maturityDate: "20/09/2030",
-    plafond: plafond,
-    pokokSisa: pokokSisa,
-    marginSisa: marginSisa,
-    totalOutstanding: totalOutstanding,
-    noCif: `0000000${i + 1}`,
-    namaProduk: "Kredit Modal Kerja - Umum",
-    persenMargin: 0.125,
-    dayPastDue: 3 + i * 5,
-    pd: pd,
-    lgd: lgd,
-    ead: ead,
-    psak413: psak413,
-    status: "Pending",
-  };
-});
-
-// Helper formatting currency IDR
+// 3. Format Currency (Rp)
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -84,12 +63,24 @@ const formatCurrency = (val: number) =>
     minimumFractionDigits: 2,
   }).format(val);
 
-// Helper formatting percent
+// 4. Format Persen (%)
 const formatPercent = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "percent",
     minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   }).format(val);
+
+// 5. Format Tanggal (Serial Excel ke String atau String ke String)
+const formatDate = (val: string | number | undefined) => {
+  if (!val) return "-";
+  // Jika Excel memberikan serial number date (misal 44123)
+  if (typeof val === 'number') {
+    const date = new Date(Math.round((val - 25569)*86400*1000));
+    return date.toLocaleDateString("id-ID");
+  }
+  return val.toString();
+};
 
 export default function ProcessPage() {
   const [hovered, setHovered] = useState(false);
@@ -99,6 +90,9 @@ export default function ProcessPage() {
   const [rows, setRows] = useState<BankingRow[]>([]);
   const [started, setStarted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [fileName, setFileName] = useState<string>("");
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetAll = () => {
@@ -110,104 +104,143 @@ export default function ProcessPage() {
     setRows([]);
     setStarted(false);
     setShowSuccess(false);
-    localStorage.removeItem("psak_data"); // Opsional: clear storage saat reset
+    setFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // --- FUNGSI 1: UPLOAD & BACA SEMUA KOLOM ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: "binary" });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      
+      const dataRaw: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
+
+      const mappedData: BankingRow[] = dataRaw.map((row, index) => {
+        // Mapping detil semua kolom
+        return {
+          id: index + 1,
+          kodeCabang: String(row["KODE_CABANG"] ?? ""),
+          noRekening: String(row["NO_REKENING"] ?? ""),
+          akad: String(row["AKAD"] ?? ""),
+          namaNasabah: String(row["NAMA_NASABAH"] ?? ""),
+          alamatNasabah: String(row["ALAMAT_NASABAH"] ?? ""),
+          kodeProduk: String(row["KODE_PRODUK"] ?? ""),
+          startDate: formatDate(row["START_DATE"] as string | number | undefined),
+          maturityDate: formatDate(row["MATURITY_DATE"] as string | number | undefined),
+          plafond: parseIndonesianNumber(row["PLAFOND"] as string | number | undefined),
+          pokokSisa: parseIndonesianNumber(row["POKOK_SISA"] as string | number | undefined),
+          marginSisa: parseIndonesianNumber(row["MARGIN_SISA"] as string | number | undefined),
+          totalOutstanding: parseIndonesianNumber(row["TOTAL_OUTSTANDING"] as string | number | undefined),
+          noCif: String(row["NO_CIF"] ?? ""),
+          namaProduk: String(row["NAMA_PRODUK"] ?? ""),
+          persenMargin: parseIndonesianPercent(row["PERSEN_MARGIN_PINJAMAN"] as string | number | undefined),
+          dayPastDue: parseInt(String(row["DAY_PAST_DUE"])) || 0,
+          
+          // Kolom Kunci Rumus
+          pd: parseIndonesianPercent(row["PD"] as string | number | undefined),
+          lgd: parseIndonesianPercent(row["LGD"] as string | number | undefined),
+          ead: parseIndonesianNumber(row["EAD"] as string | number | undefined),
+          
+          psak413: 0, // Inisialisasi 0
+          status: "Pending",
+        };
+      });
+
+      setRows(mappedData);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // --- FUNGSI 2: PROSES HITUNG ---
   const handleConfirm = () => {
     setConfirmOpen(false);
-    if (running) return;
+    if (running || rows.length === 0) return;
+    
     setStarted(true);
     setRunning(true);
     setProgress(0);
-    setRows([]);
 
-    let i = 0;
+    let currentIndex = 0;
+    const total = rows.length;
+
     timerRef.current = setInterval(() => {
-      const nextRow: BankingRow = { ...BASE_ROWS[i], status: "Processing" };
-      setRows((prev) => [...prev, nextRow]);
-      setProgress(Math.round(((i + 1) / TOTAL_ROWS) * 100));
-      i += 1;
-
-      if (i >= TOTAL_ROWS) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setRunning(false);
-        setTimeout(() => {
-          // Tandai semua jadi Done
-          const finalRows = BASE_ROWS.map(
-            (r): BankingRow => ({ ...r, status: "Done" })
-          );
-          setRows(finalRows);
-          setProgress(100);
-
-          // SIMPAN KE LOCAL STORAGE
-          localStorage.setItem("psak_data", JSON.stringify(finalRows));
-
-          // Tampilkan success animation
-          setTimeout(() => setShowSuccess(true), 300);
-        }, 600);
-      }
-    }, 1000); // 1 detik per row sesuai request
-  };
-
-  // Fungsi Export ke Excel (CSV) dari Local Storage
-  const handleExportExcel = () => {
-    const storedData = localStorage.getItem("psak_data");
-    if (!storedData) {
-      alert("Data tidak ditemukan di Local Storage. Silakan proses dahulu.");
-      return;
-    }
-
-    try {
-      const data: BankingRow[] = JSON.parse(storedData);
-
-      // Header CSV
-      const headers = [
-        "KODE_CABANG",
-        "NO_REKENING",
-        "AKAD",
-        "NAMA_NASABAH",
-        "ALAMAT",
-        "KODE_PRODUK",
-        "PLAFOND",
-        "POKOK_SISA",
-        "TOTAL_OS",
-        "PD",
-        "LGD",
-        "EAD",
-        "PSAK_413",
-      ];
-
-      // Map rows ke string CSV
-      const csvRows = data.map((row) => {
-        return [
-          row.kodeCabang,
-          `'${row.noRekening}`, // Tambah kutip agar tidak jadi scientific number di excel
-          `'${row.akad}`,
-          `"${row.namaNasabah}"`,
-          `"${row.alamatNasabah}"`,
-          row.kodeProduk,
-          row.plafond,
-          row.pokokSisa,
-          row.totalOutstanding,
-          formatPercent(row.pd),
-          formatPercent(row.lgd),
-          row.ead,
-          row.psak413,
-        ].join(",");
+      const batchSize = Math.max(1, Math.floor(total / 40)); // Batch processing agar UI smooth
+      
+      setRows((prevRows) => {
+        const newRows = [...prevRows];
+        for (let i = -1; i < batchSize; i++) {
+          const idx = currentIndex + i;
+          if (idx < total) {
+            const row = newRows[idx];
+            // RUMUS: PD * LGD * EAD
+            const result = row.pd * row.lgd * row.ead;
+            
+            newRows[idx] = {
+              ...row,
+              psak413: result,
+              status: "Done",
+            };
+          }
+        }
+        return newRows;
       });
 
-      const csvString = [headers.join(","), ...csvRows].join("\n");
-      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "data_psak_413.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Gagal export", error);
-    }
+      currentIndex += batchSize;
+      const currentProgress = Math.min(100, Math.round((currentIndex / total) * 100));
+      setProgress(currentProgress);
+
+      if (currentIndex >= total) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setRunning(false);
+        setTimeout(() => setShowSuccess(true), 500);
+      }
+    }, 50); // Speed update
+  };
+
+  // --- FUNGSI 3: EXPORT SEMUA DATA ---
+  const handleExportExcel = () => {
+    // Map ulang agar urutan kolom rapih dan format angka benar
+    const dataToExport = rows.map((row) => ({
+      "KODE_CABANG": row.kodeCabang,
+      "NO_REKENING": row.noRekening,
+      "AKAD": row.akad,
+      "NAMA_NASABAH": row.namaNasabah,
+      "ALAMAT_NASABAH": row.alamatNasabah,
+      "KODE_PRODUK": row.kodeProduk,
+      "START_DATE": row.startDate,
+      "MATURITY_DATE": row.maturityDate,
+      "PLAFOND": row.plafond,
+      "POKOK_SISA": row.pokokSisa,
+      "MARGIN_SISA": row.marginSisa,
+      "TOTAL_OUTSTANDING": row.totalOutstanding,
+      "NO_CIF": row.noCif,
+      "NAMA_PRODUK": row.namaProduk,
+      "PERSEN_MARGIN": row.persenMargin, // Dalam desimal (biar user bisa format % di excel sendiri)
+      "DAY_PAST_DUE": row.dayPastDue,
+      "PD": row.pd,
+      "LGD": row.lgd,
+      "EAD": row.ead,
+      "PSAK_413 (HASIL)": row.psak413 // Kolom Hasil
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Auto width columns (opsional, biar rapi)
+    const wscols = Object.keys(dataToExport[0]).map(() => ({ wch: 15 }));
+    worksheet['!cols'] = wscols;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Hasil PSAK 413");
+    XLSX.writeFile(workbook, `Hasil_PSAK413_${new Date().getTime()}.xlsx`);
   };
 
   useEffect(() => {
@@ -216,524 +249,216 @@ export default function ProcessPage() {
     };
   }, []);
 
-  const canStart = !running && rows.length === 0;
+  const canStart = !running && rows.length > 0 && !started;
 
   return (
-    <div className="min-h-[100dvh] bg-white p-6 md:p-10 font-sans text-slate-800">
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-5">
-          <div className="relative grid h-20 w-20 place-content-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500/80 ring-1 ring-yellow-300/50 shadow-[0_8px_30px_rgba(253,224,71,0.45)]">
-            <span className="pointer-events-none absolute inset-0 rounded-2xl animate-[spin_9s_linear_infinite] bg-[conic-gradient(from_0deg,rgba(255,255,255,0.15),rgba(255,255,255,0)_50%,rgba(255,255,255,0.15))]" />
-            <div className="relative h-[64px] w-[64px] rounded-2xl bg-white ring-1 ring-yellow-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6)] grid place-content-center">
-              <video
-                src="/3d-animation/icon-robot-3d.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 h-full w-full object-contain rounded-2xl"
-              />
-            </div>
+    <div className="min-h-[100dvh] bg-white p-4 md:p-8 font-sans text-slate-800">
+      {/* Header Section */}
+      <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="grid h-16 w-16 place-content-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-3xl shadow-lg shadow-yellow-200">
+            📊
           </div>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
-              Proses • PSAK 413
+              Kalkulator PSAK 413
             </h1>
             <p className="text-sm text-gray-600">
-              Perhitungan CKPN (ECL) metode PD x LGD x EAD.
+              Upload Excel Lengkap &rarr; Hitung CKPN (PD × LGD × EAD)
             </p>
           </div>
         </div>
 
-        {/* Tombol proses */}
-        <div className="relative">
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            type="file"
+            accept=".xlsx, .xls, .csv"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={running || started}
+          />
+
+          {!fileName ? (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all"
+            >
+              <span>📂 Upload Excel</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
+              <div className="flex flex-col">
+                <span className="text-xs text-blue-500 font-bold uppercase tracking-wider">File Terpilih</span>
+                <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px]">{fileName}</span>
+              </div>
+              {!started && !running && (
+                <button onClick={resetAll} className="p-1 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors">
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
+
           <button
-            type="button"
             onClick={() => setConfirmOpen(true)}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             disabled={!canStart}
-            aria-label="Proses PSAK 413"
             className={[
-              "group relative inline-flex items-center gap-3 rounded-2xl px-6 py-3.5 font-semibold text-gray-900",
-              "bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-400 ring-1 ring-yellow-300/60",
-              "shadow-[0_10px_30px_rgba(245,158,11,0.35)] hover:brightness-105 hover:-translate-y-0.5 active:translate-y-0 transition-all",
-              !canStart && "opacity-60 cursor-not-allowed",
+              "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all",
+              !canStart 
+                ? "bg-gray-300 cursor-not-allowed" 
+                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200"
             ].join(" ")}
           >
-            <span className="relative grid h-11 w-11 place-content-center rounded-xl bg-white ring-1 ring-yellow-200 overflow-hidden">
-              <span className="absolute inset-0 rounded-xl animate-[spin_3.5s_linear_infinite] bg-[conic-gradient(from_180deg,rgba(250,204,21,0.0),rgba(250,204,21,0.6),rgba(250,204,21,0.0))]" />
-              <span className="absolute inset-[2px] rounded-[10px] bg-white" />
-              <div className="relative z-[1] h-8 w-8 rounded-lg bg-white ring-1 ring-yellow-100">
-                <video
-                  src="/3d-animation/icon-robot-3d.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            </span>
-
-            <span className="whitespace-nowrap">
-              {hovered ? "Hitung CKPN" : "Mulai Proses"}
-            </span>
-
-            {/* Shine */}
-            <span className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition">
-              <span className="absolute -inset-1 rounded-2xl animate-[shine_1.8s_ease-in-out] bg-white/30" />
-            </span>
+             {hovered ? "Jalankan Skrip ⚡" : "Mulai Proses ▶"}
           </button>
         </div>
       </div>
 
-      {/* Modal konfirmasi */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[95%] max-w-md rounded-2xl border border-yellow-200 bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="grid h-12 w-12 place-content-center rounded-xl bg-yellow-400/20 ring-1 ring-yellow-300">
-                <div className="relative h-9 w-9 rounded-lg bg-white ring-1 ring-yellow-100">
-                  <video
-                    src="/3d-animation/icon-robot-3d.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="absolute inset-0 h-full w-full object-contain"
-                  />
-                </div>
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">
-                Generate Data & Hitung?
-              </h3>
+      {/* Main Layout */}
+      <div className="grid gap-6 lg:grid-cols-4">
+        
+        {/* Sidebar Status */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Progress</h3>
+            <div className="flex items-end gap-2 mb-2">
+              <span className="text-4xl font-black text-gray-900">{progress}%</span>
+              <span className="text-sm font-medium text-gray-500 mb-1.5">Selesai</span>
             </div>
-            <p className="mb-6 text-sm text-gray-600">
-              Sistem akan memproses {TOTAL_ROWS} data nasabah, menghitung PSAK
-              413 (PD*LGD*EAD), dan menyimpannya ke Local Storage.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmOpen(false)}
-                className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleConfirm}
-                className="flex-1 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 font-semibold text-gray-900 ring-1 ring-yellow-300 hover:brightness-105"
-              >
-                Ya, Proses
-              </button>
+            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="mt-4 text-xs text-gray-500 text-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+              {running ? "Sedang menghitung baris per baris..." : 
+               started ? "Proses selesai. Siap unduh." : 
+               rows.length > 0 ? `${rows.length} Data siap diproses` : "Menunggu file..."}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Grid utama */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Card Content (Status Robot) */}
-        <div className="relative overflow-hidden rounded-2xl border border-yellow-100 bg-white/90 p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] h-fit sticky top-6">
-          <div className="relative mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Status Proses</h2>
-              <p className="text-sm text-gray-600">
-                {running
-                  ? "Sedang mengkalkulasi..."
-                  : started
-                  ? "Perhitungan Selesai"
-                  : "Menunggu instruksi"}
-              </p>
-            </div>
-            <div
-              className={[
-                "rounded-full px-3 py-1 text-xs font-semibold ring-1",
-                running
-                  ? "bg-amber-50 text-amber-700 ring-amber-200"
-                  : started
-                  ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                  : "bg-gray-50 text-gray-700 ring-gray-200",
-              ].join(" ")}
-            >
-              {progress}%
-            </div>
-          </div>
-
-          {!started ? (
-            <div className="flex flex-col items-center text-center">
-              <div className="relative h-56 w-56 rounded-2xl bg-white ring-1 ring-yellow-100">
-                <video
-                  src="/3d-animation/ai-loading-robot.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold text-gray-800">
-                Data Siap Diproses
-              </h3>
-              <p className="mt-1 max-w-md text-sm text-gray-600">
-                Silahkan klik tombol di atas untuk memulai simulasi perhitungan
-                massal.
-              </p>
-            </div>
-          ) : running ? (
-            <div className="flex flex-col items-center">
-              <div className="relative h-56 w-56 rounded-2xl bg-white ring-1 ring-yellow-100">
-                <video
-                  src="/3d-animation/loading-white-robot.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              </div>
-              <div className="mt-6 w-full">
-                <div className="relative h-4 w-full overflow-hidden rounded-full bg-gray-100 ring-1 ring-yellow-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 transition-[width]"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div className="mt-2 text-center text-sm font-semibold text-gray-800">
-                  Memproses data {rows.length} dari {TOTAL_ROWS}...
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center text-center">
-              <div className="relative h-56 w-56 rounded-2xl bg-white ring-1 ring-emerald-200 shadow-[0_0_0_6px_rgba(16,185,129,0.06)]">
-                <video
-                  src="/3d-animation/loving-bot.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-                <span className="pointer-events-none absolute -inset-2 rounded-3xl animate-[pulseRing_2.4s_ease-out_infinite] bg-emerald-400/20" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold text-emerald-700">
-                Selesai! Data Tersimpan
-              </h3>
-              <p className="mt-1 max-w-md text-sm text-gray-600">
-                Data telah disimpan di Local Storage. Anda dapat mengunduhnya
-                sekarang.
-              </p>
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={resetAll}
-                  className="rounded-xl bg-white border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+        {/* Data Table Section - Full Width & Scrollable */}
+        <div className="lg:col-span-3">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[70vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+              <h2 className="font-bold text-gray-800">Preview Data ({rows.length} Rows)</h2>
+              {rows.length > 0 && !running && (
+                <button 
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-emerald-700 shadow-md shadow-emerald-100 transition-all"
                 >
-                  Reset
+                  📥 Download Excel Lengkap
                 </button>
-              </div>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Card Tabel Informasi */}
-        <div
-          id="tabel"
-          className="relative overflow-hidden rounded-2xl border border-yellow-100 bg-white/90 p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
-        >
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Tabel Informasi</h2>
-
-            {/* Tombol Export Excel */}
-            {rows.length > 0 && !running && (
-              <button
-                onClick={handleExportExcel}
-                className="flex items-center gap-2 rounded-lg bg-[#1D6F42] px-3 py-2 text-sm font-medium text-white hover:bg-[#185c37] transition-colors shadow-sm"
-              >
-                {/* Icon Excel Simple */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2ZM15.8 17.24C15.8 17.24 14.58 15.32 14.15 14.61L15.93 11.66H18.25L15.39 16.09L18.36 20.75H15.98L13.62 16.92L11.23 20.75H8.91L11.96 16.03L9.16 11.66H11.53L13.19 14.39C13.19 14.39 13.35 14.69 13.35 14.69L14.7 11.66H17.23L15.8 17.24Z" />
-                </svg>
-                Export Excel
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-[600px] overflow-auto rounded-xl ring-1 ring-yellow-100 bg-white">
-            <table className="min-w-max divide-y divide-gray-200">
-              <thead className="bg-gray-100 sticky top-0 z-10">
-                <tr className="text-left text-xs uppercase tracking-wider font-bold text-gray-700">
-                  <th className="px-4 py-3 bg-gray-100">Kode Cab</th>
-                  <th className="px-4 py-3 bg-gray-100">No Rekening</th>
-                  <th className="px-4 py-3 bg-gray-100">Akad</th>
-                  <th className="px-4 py-3 bg-gray-100">Nama Nasabah</th>
-                  <th className="px-4 py-3 bg-gray-100">Alamat</th>
-                  <th className="px-4 py-3 bg-gray-100">Produk</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">
-                    Start Date
-                  </th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">Maturity</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">Plafond</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">
-                    Pokok Sisa
-                  </th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">Total OS</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">PD</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">LGD</th>
-                  <th className="px-4 py-3 bg-gray-100 text-right">EAD</th>
-                  <th className="px-4 py-3 bg-blue-50 text-blue-900 text-right border-l border-blue-100">
-                    PSAK 413
-                  </th>
-                  <th className="px-4 py-3 bg-gray-100 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-xs">
-                {rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="animate-[fadeInUp_.35s_ease-out] bg-white hover:bg-yellow-50/60"
-                  >
-                    <td className="px-4 py-2 font-mono">{r.kodeCabang}</td>
-                    <td className="px-4 py-2 font-mono">{r.noRekening}</td>
-                    <td className="px-4 py-2 text-center">{r.akad}</td>
-                    <td className="px-4 py-2 font-medium text-gray-900">
-                      {r.namaNasabah}
-                    </td>
-                    <td className="px-4 py-2 truncate max-w-[150px]">
-                      {r.alamatNasabah}
-                    </td>
-                    <td className="px-4 py-2">{r.kodeProduk}</td>
-                    <td className="px-4 py-2 text-right">{r.startDate}</td>
-                    <td className="px-4 py-2 text-right">{r.maturityDate}</td>
-                    <td className="px-4 py-2 text-right">
-                      {formatCurrency(r.plafond)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatCurrency(r.pokokSisa)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium">
-                      {formatCurrency(r.totalOutstanding)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatPercent(r.pd)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatPercent(r.lgd)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatCurrency(r.ead)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold text-blue-700 bg-blue-50/30 border-l border-blue-50">
-                      {formatCurrency(r.psak413)}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span
-                        className={[
-                          "inline-block h-2 w-2 rounded-full",
-                          r.status === "Done"
-                            ? "bg-emerald-500"
-                            : r.status === "Processing"
-                            ? "bg-amber-500 animate-pulse"
-                            : "bg-gray-300",
-                        ].join(" ")}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
+            
+            <div className="flex-1 overflow-auto w-full relative">
+              <table className="min-w-max text-xs text-left text-gray-600">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-100 font-bold sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <td
-                      colSpan={16}
-                      className="px-4 py-20 text-center text-sm text-gray-500 bg-gray-50/50"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <span className="text-3xl">📊</span>
-                        <span>
-                          Data belum dimuat. Klik <b>Mulai Proses</b>.
-                        </span>
-                      </div>
-                    </td>
+                    <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20">PSAK 413 (Hasil)</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Kode Cab</th>
+                    <th className="px-4 py-3 whitespace-nowrap">No Rekening</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Nama Nasabah</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Alamat</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Produk</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Akad</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">Plafond</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">Pokok Sisa</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">Margin Sisa</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">Total OS</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">EAD</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">PD</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">LGD</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Start Date</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Maturity</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={17} className="px-6 py-24 text-center text-gray-400">
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="text-4xl opacity-50">📂</span>
+                          <span>Belum ada data yang diupload</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-yellow-50 transition-colors">
+                        <td className="px-4 py-2 text-center">
+                          <span className={`inline-block w-2 h-2 rounded-full ${row.status === 'Done' ? 'bg-emerald-500' : row.status === 'Processing' ? 'bg-amber-400 animate-pulse' : 'bg-gray-300'}`}></span>
+                        </td>
+                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/30 border-x border-blue-50 text-right sticky left-0 z-10">
+                          {row.status === 'Pending' ? '-' : formatCurrency(row.psak413)}
+                        </td>
+                        <td className="px-4 py-2">{row.kodeCabang}</td>
+                        <td className="px-4 py-2 font-mono">{row.noRekening}</td>
+                        <td className="px-4 py-2 font-medium text-gray-900">{row.namaNasabah}</td>
+                        <td className="px-4 py-2 truncate max-w-[150px]" title={row.alamatNasabah}>{row.alamatNasabah}</td>
+                        <td className="px-4 py-2">{row.kodeProduk}</td>
+                        <td className="px-4 py-2">{row.akad}</td>
+                        <td className="px-4 py-2 text-right">{formatCurrency(row.plafond)}</td>
+                        <td className="px-4 py-2 text-right">{formatCurrency(row.pokokSisa)}</td>
+                        <td className="px-4 py-2 text-right">{formatCurrency(row.marginSisa)}</td>
+                        <td className="px-4 py-2 text-right">{formatCurrency(row.totalOutstanding)}</td>
+                        <td className="px-4 py-2 text-right font-medium">{formatCurrency(row.ead)}</td>
+                        <td className="px-4 py-2 text-right">{formatPercent(row.pd)}</td>
+                        <td className="px-4 py-2 text-right">{formatPercent(row.lgd)}</td>
+                        <td className="px-4 py-2 text-right">{row.startDate}</td>
+                        <td className="px-4 py-2 text-right">{row.maturityDate}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* SUCCESS OVERLAY */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 backdrop-blur-sm">
-          <div className="relative w-[95%] max-w-lg overflow-hidden rounded-3xl border border-emerald-200 bg-white p-8 shadow-2xl">
-            {/* burst glow */}
-            <div className="pointer-events-none absolute -inset-10 opacity-40 blur-2xl">
-              <div className="h-full w-full rounded-[48px] bg-[radial-gradient(circle,rgba(16,185,129,0.35),transparent_60%)]" />
-            </div>
-
-            <div className="relative flex flex-col items-center">
-              {/* check pulse */}
-              <div className="relative mb-4 grid h-20 w-20 place-content-center rounded-full bg-emerald-500 text-white shadow-lg">
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  className="mx-auto"
-                >
-                  <path
-                    fill="currentColor"
-                    d="M9 16.2l-3.5-3.5l1.4-1.4L9 13.4l7.1-7.1l1.4 1.4z"
-                  />
-                </svg>
-                <span className="pointer-events-none absolute -inset-2 rounded-full animate-[ring_1.8s_ease-out_infinite] bg-emerald-400/35" />
-              </div>
-
-              <h3 className="text-xl font-extrabold text-emerald-700">
-                Sukses Diproses!
-              </h3>
-              <p className="mt-1 text-center text-sm text-gray-600">
-                Seluruh data telah selesai diproses. Anda bisa mengunduh file
-                Excel sekarang.
-              </p>
-
-              {/* confetti ringan */}
-              <div className="pointer-events-none absolute inset-x-0 -top-3">
-                <div className="mx-auto h-6 w-80">
-                  {Array.from({ length: 24 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="absolute block h-1.5 w-1.5 animate-confetti rounded-[2px]"
-                      style={{
-                        left: `${(i / 24) * 100}%`,
-                        animationDelay: `${(i % 6) * 0.12}s`,
-                        background:
-                          i % 3 === 0
-                            ? "#34d399"
-                            : i % 3 === 1
-                            ? "#fbbf24"
-                            : "#60a5fa",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => setShowSuccess(false)}
-                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Tutup
-                </button>
-                <button
-                  onClick={() => {
-                    handleExportExcel();
-                    setShowSuccess(false);
-                  }}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200"
-                >
-                  Download Excel
-                </button>
-              </div>
+      {/* Success Modal */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Konfirmasi</h3>
+            <p className="text-sm text-gray-600 mt-2 mb-6">
+              Mulai kalkulasi untuk <b>{rows.length} baris data</b>? <br/>
+              Pastikan kolom PD, LGD, dan EAD sudah terisi di Excel.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmOpen(false)} className="flex-1 px-4 py-2 rounded-xl border border-gray-200 font-medium text-gray-600 hover:bg-gray-50">Batal</button>
+              <button onClick={handleConfirm} className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 shadow-lg shadow-amber-200">Ya, Hitung</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Styles */}
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(6px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes slide {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(200%);
-          }
-        }
-        @keyframes shine {
-          0% {
-            opacity: 0;
-            transform: translateX(-120%) skewX(-12deg);
-          }
-          50% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0;
-            transform: translateX(120%) skewX(-12deg);
-          }
-        }
-        @keyframes pulseRing {
-          0% {
-            transform: scale(0.9);
-            opacity: 0.6;
-          }
-          70% {
-            transform: scale(1.1);
-            opacity: 0;
-          }
-          100% {
-            opacity: 0;
-          }
-        }
-        @keyframes ring {
-          0% {
-            transform: scale(0.9);
-            opacity: 0.5;
-          }
-          80% {
-            transform: scale(1.15);
-            opacity: 0;
-          }
-          100% {
-            opacity: 0;
-          }
-        }
-        @keyframes confetti {
-          0% {
-            transform: translateY(0) rotate(0);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(24px) rotate(160deg);
-            opacity: 0;
-          }
-        }
-        .animate-confetti {
-          animation: confetti 0.9s ease-out forwards;
-        }
-        /* Custom Scrollbar untuk Table */
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #d4d4d4;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #a3a3a3;
-        }
-      `}</style>
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-[fadeInUp_0.4s_ease-out]">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🎉</div>
+            <h2 className="text-2xl font-black text-gray-900">Selesai!</h2>
+            <p className="text-gray-600 mt-2 mb-8">
+              Perhitungan PSAK 413 berhasil diselesaikan. Silakan unduh hasilnya.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowSuccess(false)} className="flex-1 px-4 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Tutup</button>
+              <button onClick={() => { handleExportExcel(); setShowSuccess(false); }} className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xl shadow-emerald-200">
+                Download Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
