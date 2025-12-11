@@ -14,8 +14,9 @@ import {
   DollarSign,
   Box,
   Package,
-  Layers, // Segment Icon
-  ListOrdered, // Stage Icon
+  Layers,
+  ListOrdered,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -38,6 +39,11 @@ import ProductCategoryModal from "@/components/modals/product-category-modal";
 import ProductModal from "@/components/modals/product-modal";
 import SegmentModal from "@/components/modals/segment-modal";
 import StageModal from "@/components/modals/stages-modal";
+import type {
+  EclPerStageData,
+  EclPerSegmentData,
+  EclPerProductData,
+} from "@/services/api";
 
 ChartJS.register(
   CategoryScale,
@@ -56,71 +62,32 @@ const rupiah = (n: number): string =>
     maximumFractionDigits: 0,
   }).format(n);
 
-const ECL_DATE = "31-10-2025";
-
-/* =================== DUMMY DATA HASIL PROSES =================== */
-type BranchItem = { label: string; value: number; color: string };
-type StageItem = { label: string; value: number; color: string };
-type SegmentItem = { label: string; lifetime: number; m12: number };
-type GenericItem = { label: string; value: number };
-
-const TOP5_BRANCH: BranchItem[] = [
-  { label: "010 – CABANG UTAMA 010", value: 47_804_130_613, color: "#7CB5FF" },
-];
-
-const STAGES: StageItem[] = [
-  { label: "Stage 1", value: 55_627_373_809, color: "#7CB5FF" },
-  { label: "Stage 2", value: 19_298_091_845, color: "#374151" },
-];
-
-const BY_SEGMENT: SegmentItem[] = [
-  { label: "MODAL KERJA", lifetime: 62_697_402_418, m12: 18_190_055_309 },
-  { label: "KONSUMER", lifetime: 35_600_000_000, m12: 23_500_000_000 },
-  { label: "LAINNYA", lifetime: 26_500_000_000, m12: 24_500_000_000 },
-  { label: "INVESTASI", lifetime: 18_500_000_000, m12: 12_000_000_000 },
-  { label: "KUR BARU", lifetime: 8_000_000_000, m12: 7_500_000_000 },
-];
-
-const TOP5_PRODUCT: GenericItem[] = [
-  { label: "K01 – KREDIT MODAL KERJA BIASA", value: 50_243_634_349 },
-  { label: "K02 – KREDIT MODAL KERJA KONSTRUKSI", value: 41_600_000_000 },
-  { label: "K03 – KPR SUBSIDI", value: 30_000_000_000 },
-  { label: "K04 – KREDIT MODAL KERJA BIASA", value: 22_000_000_000 },
-  { label: "K05 – KUR BARU", value: 12_000_000_000 },
-];
-
-const TOP10_TRA: GenericItem[] = [
-  { label: "10205147BGU01", value: 500_000_000 },
-  { label: "10205147BGP01", value: 230_000_000 },
-  { label: "05001514", value: 200_000_000 },
-  { label: "05001725", value: 140_000_000 },
-  { label: "05001701", value: 150_000_000 },
-  { label: "05001747", value: 130_000_000 },
-  { label: "05000651BGP06", value: 120_000_000 },
-  { label: "05000651BGU06", value: 110_000_000 },
-  { label: "05000651BGP07", value: 95_000_000 },
-  { label: "05000651BGP09", value: 85_000_000 },
-];
+// Helper untuk format tanggal default (YYYY-MM-DD)
+const formatDateInput = (date: Date) => {
+  return date.toISOString().split("T")[0];
+};
 
 /* ===== Komponen Kartu ===== */
 function Card({
   title,
   children,
+  currentDate,
 }: {
   title: string;
   children: React.ReactNode;
+  currentDate: string;
 }) {
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-orange-100">
+    <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-orange-100 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-2xl font-black text-gray-900">{title}</h3>
         <button className="p-2 rounded-full hover:bg-orange-50 transition-colors transform hover:rotate-45">
           <ArrowUpRight className="w-5 h-5 text-orange-600" />
         </button>
       </div>
-      {children}
+      <div className="flex-1 min-h-[300px] relative">{children}</div>
       <div className="mt-4 text-center text-sm font-semibold text-gray-600">
-        ECL Date : {ECL_DATE}
+        Filter Date : {currentDate}
       </div>
     </div>
   );
@@ -129,70 +96,116 @@ function Card({
 /* =================== DASHBOARD =================== */
 export default function Dashboard() {
   /* Header & widget states */
-  const [selectedPeriod, setSelectedPeriod] = useState("This month");
-  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showWidgetModal, setShowWidgetModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // --- STATE DATA ---
+  // --- DATE FILTER STATE (DYNAMIC) ---
+  // Default: Dari 2 tahun lalu sampai hari ini (atau sesuaikan kebutuhan bisnis)
+  const today = new Date();
+  const pastDate = new Date();
+  pastDate.setFullYear(today.getFullYear() - 2); // Default range 2 tahun
+
+  const [dateRange, setDateRange] = useState({
+    from: formatDateInput(pastDate),
+    to: formatDateInput(today),
+  });
+
+  // --- MODAL STATES ---
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [categoryCount, setCategoryCount] = useState(0);
-
   const [showProductModal, setShowProductModal] = useState(false);
-  const [productCount, setProductCount] = useState(0);
-
   const [showSegmentModal, setShowSegmentModal] = useState(false);
-  const [segmentCount, setSegmentCount] = useState(0);
-
-  // NEW: State for Stage
   const [showStageModal, setShowStageModal] = useState(false);
-  const [stageCount, setStageCount] = useState(0);
 
-  const periods = ["Today", "This week", "This month", "This year", "All time"];
+  // --- DASHBOARD DATA STATES ---
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- FETCH DATA DASHBOARD ---
+  // Count Stats
+  const [counts, setCounts] = useState({
+    categories: 0,
+    products: 0,
+    segments: 0,
+    stages: 0,
+  });
+
+  // ECL Data
+  const [totalEcl, setTotalEcl] = useState(0);
+  const [eclByStage, setEclByStage] = useState<EclPerStageData[]>([]);
+  const [eclBySegment, setEclBySegment] = useState<EclPerSegmentData[]>([]);
+  const [eclByProduct, setEclByProduct] = useState<EclPerProductData[]>([]);
+
+  // Dummy Branch Data (Since API not provided for this specific chart)
+  const [eclByBranch] = useState([
+    {
+      label: "010 – CABANG UTAMA 010",
+      value: 47_804_130_613,
+      color: "#7CB5FF",
+    },
+  ]);
+
+  // --- FETCH DATA ---
   useEffect(() => {
-    const fetchDashboardStats = async () => {
+    const loadDashboardData = async () => {
+      setIsLoading(true);
       try {
-        // Fetch Categories Count
-        const resCat = await api.productCategory.getAll({ paginate: 1 });
-        if (resCat.code === 200) setCategoryCount(resCat.data.total);
+        // 1. Fetch Counts (Paginate 1 is enough to get total)
+        // Count data usually independent of date range (master data)
+        const [resCat, resProd, resSeg, resStage] = await Promise.all([
+          api.productCategory.getAll({ paginate: 1 }),
+          api.product.getAll({ paginate: 1 }),
+          api.segment.getAll({ paginate: 1 }),
+          api.stage.getAll({ paginate: 1 }),
+        ]);
 
-        // Fetch Products Count
-        const resProd = await api.product.getAll({ paginate: 1 });
-        if (resProd.code === 200) setProductCount(resProd.data.total);
+        setCounts({
+          categories: resCat.code === 200 ? resCat.data.total : 0,
+          products: resProd.code === 200 ? resProd.data.total : 0,
+          segments: resSeg.code === 200 ? resSeg.data.total : 0,
+          stages: resStage.code === 200 ? resStage.data.total : 0,
+        });
 
-        // Fetch Segments Count
-        const resSeg = await api.segment.getAll({ paginate: 1 });
-        if (resSeg.code === 200) setSegmentCount(resSeg.data.total);
+        // 2. Fetch Dashboard Charts (DYNAMIC DATE PARAMS)
+        const dateParams = {
+          from_date: dateRange.from,
+          to_date: dateRange.to,
+        };
 
-        // Fetch Stages Count
-        const resStage = await api.stage.getAll({ paginate: 1 });
-        if (resStage.code === 200) setStageCount(resStage.data.total);
+        const [resTotalEcl, resEclStage, resEclSegment, resEclProduct] =
+          await Promise.all([
+            api.dashboard.getTotalEcl(dateParams),
+            api.dashboard.getEclPerStage(dateParams),
+            api.dashboard.getEclPerSegment(dateParams),
+            api.dashboard.getEclPerProduct(dateParams),
+          ]);
+
+        if (resTotalEcl.code === 200) setTotalEcl(resTotalEcl.data);
+        if (resEclStage.code === 200) setEclByStage(resEclStage.data);
+        if (resEclSegment.code === 200) setEclBySegment(resEclSegment.data);
+        if (resEclProduct.code === 200) setEclByProduct(resEclProduct.data);
       } catch (error) {
-        console.error("Failed to fetch dashboard stats", error);
+        console.error("Dashboard data fetch failed:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchDashboardStats();
-  }, []);
+    loadDashboardData();
+  }, [dateRange]); // Refetch when dateRange changes
 
-  /* ======= Stats List (Dinamis) ======= */
+  /* ======= Stats List Configuration ======= */
   const stats = [
     {
       title: "Total ECL (Provision)",
-      amount: rupiah(261_166_590_685),
+      amount: isLoading ? "Loading..." : rupiah(totalEcl),
       cents: "",
-      change: "+1.9%",
+      change: "+1.9%", // Dummy trend
       isPositive: true,
       icon: DollarSign,
       gradient: "from-yellow-400 to-orange-500",
       onClick: undefined,
     },
-    // --- Widget Product Category ---
     {
       title: "Product Categories",
-      amount: categoryCount.toLocaleString("id-ID"),
+      amount: isLoading ? "..." : counts.categories.toLocaleString("id-ID"),
       cents: " Items",
       change: "Manage",
       isPositive: true,
@@ -200,10 +213,9 @@ export default function Dashboard() {
       gradient: "from-blue-400 to-indigo-500",
       onClick: () => setShowCategoryModal(true),
     },
-    // --- Widget Products ---
     {
       title: "Products",
-      amount: productCount.toLocaleString("id-ID"),
+      amount: isLoading ? "..." : counts.products.toLocaleString("id-ID"),
       cents: " Items",
       change: "Manage",
       isPositive: true,
@@ -211,10 +223,9 @@ export default function Dashboard() {
       gradient: "from-emerald-400 to-teal-500",
       onClick: () => setShowProductModal(true),
     },
-    // --- Widget Segments ---
     {
       title: "Segments",
-      amount: segmentCount.toLocaleString("id-ID"),
+      amount: isLoading ? "..." : counts.segments.toLocaleString("id-ID"),
       cents: " Items",
       change: "Manage",
       isPositive: true,
@@ -222,10 +233,9 @@ export default function Dashboard() {
       gradient: "from-purple-400 to-fuchsia-500",
       onClick: () => setShowSegmentModal(true),
     },
-    // --- Widget Stages (NEW) ---
     {
       title: "Stages",
-      amount: stageCount.toLocaleString("id-ID"),
+      amount: isLoading ? "..." : counts.stages.toLocaleString("id-ID"),
       cents: " Items",
       change: "Manage",
       isPositive: true,
@@ -235,66 +245,138 @@ export default function Dashboard() {
     },
   ];
 
-  /* ====== Chart.js data & options (SAMA PERSIS) ====== */
+  /* ====== Chart Data Preparation ====== */
+
+  // 1. Chart Branch (Dummy data)
   const dataTop5Branch: ChartData<"bar"> = useMemo(
     () => ({
-      labels: TOP5_BRANCH.map((d) => d.label),
+      labels: eclByBranch.map((d) => d.label),
       datasets: [
         {
           label: "ECL Amount",
-          data: TOP5_BRANCH.map((d) => d.value),
-          backgroundColor: TOP5_BRANCH.map((d) => d.color),
+          data: eclByBranch.map((d) => d.value),
+          backgroundColor: eclByBranch.map((d) => d.color),
           borderRadius: 10,
           borderSkipped: false,
         },
       ],
     }),
-    []
+    [eclByBranch]
   );
 
-  const optionsTop5Branch: ChartOptions<"bar"> = {
-    indexAxis: "y",
+  // 2. Chart Stage (Real Data)
+  const dataStage: ChartData<"doughnut"> = useMemo(
+    () => ({
+      labels: eclByStage.map((d) => `Stage ${d.stage}`),
+      datasets: [
+        {
+          data: eclByStage.map((d) => d.total_ecl),
+          backgroundColor: ["#7CB5FF", "#374151", "#86EFAC"],
+          borderWidth: 0,
+          hoverOffset: 6,
+        },
+      ],
+    }),
+    [eclByStage]
+  );
+
+  // 3. Chart Segment (Real Data)
+  const dataSegment: ChartData<"bar"> = useMemo(
+    () => ({
+      labels: eclBySegment.map((d) => d.segment),
+      datasets: [
+        {
+          label: "Total ECL",
+          data: eclBySegment.map((d) => d.total_ecl),
+          backgroundColor: "#7CB5FF",
+          borderRadius: 8,
+          borderSkipped: false,
+        },
+      ],
+    }),
+    [eclBySegment]
+  );
+
+  // 4. Chart Product (Real Data)
+  const dataTop5Product: ChartData<"bar"> = useMemo(
+    () => ({
+      labels: eclByProduct.map((d) => d.product),
+      datasets: [
+        {
+          label: "Total ECL",
+          data: eclByProduct.map((d) => d.total_ecl),
+          backgroundColor: "#93C5FD",
+          borderRadius: 10,
+          borderSkipped: false,
+        },
+      ],
+    }),
+    [eclByProduct]
+  );
+
+  /* ====== Chart Options ====== */
+  const commonBarOptions: ChartOptions<"bar"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx) =>
-            `${ctx.dataset.label ?? ""}: ${rupiah(Number(ctx.parsed.x))}`,
+          label: (c) =>
+            `${c.dataset.label ?? ""}: ${rupiah(Number(c.parsed.y))}`,
         },
       },
     },
     scales: {
       x: {
         ticks: {
-          callback: (v) => rupiah(Number(v)),
+          color: "#111827",
+          font: { weight: "bold", size: 10 },
+          autoSkip: false,
+          maxRotation: 45,
+          minRotation: 45,
+        },
+        grid: { color: "rgba(0,0,0,0.05)" },
+      },
+      y: {
+        ticks: {
+          callback: (v) => {
+            const val = Number(v);
+            return new Intl.NumberFormat("id-ID", {
+              notation: "compact",
+              compactDisplay: "short",
+            }).format(val);
+          },
           color: "#374151",
           font: { weight: "bold" },
         },
         grid: { color: "rgba(0,0,0,0.06)" },
       },
-      y: {
-        ticks: { color: "#111827", font: { weight: "bold" } },
-        grid: { display: false },
-      },
     },
   };
 
-  const dataStage: ChartData<"doughnut"> = useMemo(
-    () => ({
-      labels: STAGES.map((d) => d.label),
-      datasets: [
-        {
-          data: STAGES.map((d) => d.value),
-          backgroundColor: STAGES.map((d) => d.color),
-          borderWidth: 0,
-          hoverOffset: 6,
+  const optionsTop5Branch: ChartOptions<"bar"> = {
+    ...commonBarOptions,
+    indexAxis: "y",
+    scales: {
+      x: {
+        ...commonBarOptions.scales?.y,
+        ticks: {
+          ...commonBarOptions.scales?.y?.ticks,
+          maxRotation: 0,
+          minRotation: 0,
         },
-      ],
-    }),
-    []
-  );
+      },
+      y: {
+        ...commonBarOptions.scales?.x,
+        ticks: {
+          ...commonBarOptions.scales?.x?.ticks,
+          maxRotation: 0,
+          minRotation: 0,
+        },
+      },
+    },
+  };
 
   const optionsStage: ChartOptions<"doughnut"> = {
     responsive: true,
@@ -313,220 +395,62 @@ export default function Dashboard() {
     cutout: "58%",
   };
 
-  const dataSegment: ChartData<"bar"> = useMemo(
-    () => ({
-      labels: BY_SEGMENT.map((d) => d.label),
-      datasets: [
-        {
-          label: "Lifetime",
-          data: BY_SEGMENT.map((d) => d.lifetime),
-          backgroundColor: "#7CB5FF",
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-        {
-          label: "12 Months",
-          data: BY_SEGMENT.map((d) => d.m12),
-          backgroundColor: "#374151",
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-      ],
-    }),
-    []
-  );
-
-  const optionsSegment: ChartOptions<"bar"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: { usePointStyle: true, pointStyle: "circle" },
-      },
-      tooltip: {
-        callbacks: {
-          label: (c) =>
-            `${c.dataset.label ?? ""}: ${rupiah(
-              Number(c.parsed.y ?? c.parsed)
-            )}`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: "#111827", font: { weight: "bold" } },
-        grid: { color: "rgba(0,0,0,0.05)" },
-      },
-      y: {
-        ticks: {
-          callback: (v) => rupiah(Number(v)),
-          color: "#374151",
-          font: { weight: "bold" },
-        },
-        grid: { color: "rgba(0,0,0,0.06)" },
-      },
-    },
-  };
-
-  const dataTop5Product: ChartData<"bar"> = useMemo(
-    () => ({
-      labels: TOP5_PRODUCT.map((d) => d.label),
-      datasets: [
-        {
-          label: "Top 5 ECL by Produk",
-          data: TOP5_PRODUCT.map((d) => d.value),
-          backgroundColor: "#93C5FD",
-          borderRadius: 10,
-          borderSkipped: false,
-        },
-      ],
-    }),
-    []
-  );
-
-  const optionsTop5Product: ChartOptions<"bar"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: true, position: "bottom" },
-      tooltip: {
-        callbacks: {
-          label: (c) =>
-            `${c.dataset.label ?? ""}: ${rupiah(Number(c.parsed.y))}`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: "#111827", font: { weight: "bold" } },
-        grid: { color: "rgba(0,0,0,0.05)" },
-      },
-      y: {
-        ticks: {
-          callback: (v) => rupiah(Number(v)),
-          color: "#374151",
-          font: { weight: "bold" },
-        },
-        grid: { color: "rgba(0,0,0,0.06)" },
-      },
-    },
-  };
-
-  const dataTop10TRA: ChartData<"bar"> = useMemo(
-    () => ({
-      labels: TOP10_TRA.map((d) => d.label),
-      datasets: [
-        {
-          label: "Top 10 ECL TRA – Longgar Tarik & Bank Garansi",
-          data: TOP10_TRA.map((d) => d.value),
-          backgroundColor: [
-            "#93C5FD",
-            "#374151",
-            "#86EFAC",
-            "#FDBA74",
-            "#A78BFA",
-            "#FCA5A5",
-            "#FDE047",
-            "#34D399",
-            "#F9A8D4",
-            "#67E8F9",
-          ],
-          borderRadius: 10,
-          borderSkipped: false,
-        },
-      ],
-    }),
-    []
-  );
-
-  const optionsTop10TRA: ChartOptions<"bar"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (c) =>
-            `${c.dataset.label ?? ""}: ${rupiah(Number(c.parsed.y))}`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: "#111827", font: { weight: "bold" } },
-        grid: { color: "rgba(0,0,0,0.05)" },
-      },
-      y: {
-        ticks: {
-          callback: (v) => rupiah(Number(v)),
-          color: "#374151",
-          font: { weight: "bold" },
-        },
-        grid: { color: "rgba(0,0,0,0.06)" },
-      },
-    },
-  };
-
   /* =================== UI =================== */
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button className="p-3 bg-white rounded-2xl shadow-md border-2 border-orange-200 hover:shadow-xl hover:border-orange-300 transition-all transform hover:scale-105">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+          <button className="p-3 bg-white rounded-2xl shadow-md border-2 border-orange-200 hover:shadow-xl hover:border-orange-300 transition-all transform hover:scale-105 hidden sm:block">
             <Calendar className="w-5 h-5 text-orange-600" />
           </button>
-          <div className="relative">
-            <button
-              onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-              className="px-6 py-3 bg-white rounded-2xl shadow-md border-2 border-orange-200 hover:shadow-xl hover:border-orange-300 transition-all font-semibold text-gray-700 flex items-center gap-2 transform hover:scale-105"
-            >
-              <Clock className="w-5 h-5 text-orange-500" />
-              {selectedPeriod}
-              <ChevronDown
-                className={`w-4 h-4 transition-transform ${
-                  showPeriodDropdown ? "rotate-180" : ""
-                }`}
+
+          {/* --- DATE PICKER INPUTS --- */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-2 rounded-2xl shadow-md border-2 border-orange-200 w-full sm:w-auto">
+            <div className="flex items-center gap-2 px-2">
+              <span className="text-xs font-bold text-gray-500 uppercase">
+                From
+              </span>
+              <input
+                type="date"
+                value={dateRange.from}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, from: e.target.value })
+                }
+                className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
               />
-            </button>
-            {showPeriodDropdown && (
-              <div className="absolute top-full mt-2 left-0 w-48 bg-white rounded-2xl shadow-2xl border-2 border-orange-200 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                {periods.map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => {
-                      setSelectedPeriod(period);
-                      setShowPeriodDropdown(false);
-                    }}
-                    className={`w-full px-4 py-3 text-left hover:bg-orange-50 transition-colors ${
-                      selectedPeriod === period
-                        ? "bg-orange-100 text-orange-700 font-semibold"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-            )}
+            </div>
+            <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
+            <div className="flex items-center gap-2 px-2">
+              <span className="text-xs font-bold text-gray-500 uppercase">
+                To
+              </span>
+              <input
+                type="date"
+                value={dateRange.to}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, to: e.target.value })
+                }
+                className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full lg:w-auto">
           <button
             onClick={() => setShowWidgetModal(true)}
-            className="px-5 py-3 bg-white rounded-2xl shadow-md border-2 border-gray-200 hover:shadow-xl hover:border-orange-300 transition-all font-semibold text-gray-700 flex items-center gap-2 transform hover:scale-105"
+            className="flex-1 lg:flex-none px-5 py-3 bg-white rounded-2xl shadow-md border-2 border-gray-200 hover:shadow-xl hover:border-orange-300 transition-all font-semibold text-gray-700 flex items-center justify-center gap-2 transform hover:scale-105"
           >
             <Grid3x3 className="w-5 h-5 text-orange-500" />
-            Manage widgets
+            <span className="hidden sm:inline">Manage widgets</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl shadow-xl shadow-orange-500/40 hover:shadow-2xl hover:shadow-orange-500/50 transition-all font-bold text-white flex items-center gap-2 transform hover:scale-105"
+            className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl shadow-xl shadow-orange-500/40 hover:shadow-2xl hover:shadow-orange-500/50 transition-all font-bold text-white flex items-center justify-center gap-2 transform hover:scale-105"
           >
             <Plus className="w-5 h-5" />
-            Add new widget
+            <span className="hidden sm:inline">Add new widget</span>
           </button>
         </div>
       </div>
@@ -561,11 +485,15 @@ export default function Dashboard() {
                   {stat.title}
                 </h3>
                 <div className="flex items-baseline mb-3">
-                  <span className="text-xl font-black text-gray-900">
+                  <span
+                    className={`font-black text-gray-900 ${
+                      stat.title.includes("ECL") ? "text-xl" : "text-3xl"
+                    }`}
+                  >
                     {stat.amount}
                   </span>
                   {stat.cents && (
-                    <span className="text-xl font-bold text-gray-400 ml-1">
+                    <span className="text-lg font-bold text-gray-400 ml-1">
                       {stat.cents}
                     </span>
                   )}
@@ -598,44 +526,61 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* ===== Hasil Proses (Chart ECL) ===== */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
-        <Card title="Top 5 Expected Credit Loss by Branch">
-          <div className="h-96 w-full overflow-x-auto">
-            <div className="min-w-[720px] h-full">
-              <Bar data={dataTop5Branch} options={optionsTop5Branch} />
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Expected Credit Loss by Stage">
-          <div className="h-96 w-full">
-            <Doughnut data={dataStage} options={optionsStage} />
-          </div>
-        </Card>
-      </div>
-
-      <Card title="Expected Credit Loss by Segment">
-        <div className="h-96 w-full overflow-x-auto">
-          <div className="min-w-[820px] h-full">
-            <Bar data={dataSegment} options={optionsSegment} />
-          </div>
+      {/* ===== Charts Section ===== */}
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
         </div>
-      </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card
+              title="Expected Credit Loss by Branch"
+              currentDate={`${dateRange.from} - ${dateRange.to}`}
+            >
+              <div className="h-full w-full">
+                <Bar data={dataTop5Branch} options={optionsTop5Branch} />
+              </div>
+            </Card>
 
-      <div className="grid grid-cols-1 gap-6 my-8">
-        <Card title="Top 5 Expected Credit Loss by Product">
-          <div className="h-96 w-full overflow-x-auto">
-            <div className="min-w-[820px] h-full">
-              <Bar data={dataTop5Product} options={optionsTop5Product} />
-            </div>
+            <Card
+              title="Expected Credit Loss by Stage"
+              currentDate={`${dateRange.from} - ${dateRange.to}`}
+            >
+              <div className="h-full w-full flex justify-center">
+                <Doughnut data={dataStage} options={optionsStage} />
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
 
-      {/* --- MODALS --- */}
+          <Card
+            title="Expected Credit Loss by Segment"
+            currentDate={`${dateRange.from} - ${dateRange.to}`}
+          >
+            <div className="h-full w-full overflow-x-auto">
+              <div className="min-w-[600px] h-full">
+                <Bar data={dataSegment} options={commonBarOptions} />
+              </div>
+            </div>
+          </Card>
 
-      {/* 1. Modal Manage Widgets (bawaan) */}
+          <div className="grid grid-cols-1 gap-6 my-8">
+            <Card
+              title="Expected Credit Loss by Product"
+              currentDate={`${dateRange.from} - ${dateRange.to}`}
+            >
+              <div className="h-full w-full overflow-x-auto">
+                <div className="min-w-[1200px] h-full">
+                  <Bar data={dataTop5Product} options={commonBarOptions} />
+                </div>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* --- MODALS (CRUD) --- */}
+      {/* 1. Modal Manage Widgets */}
       {showWidgetModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
@@ -677,7 +622,7 @@ export default function Dashboard() {
             <div className="mt-6 pt-6 border-t-2 border-gray-100">
               <button
                 onClick={() => setShowWidgetModal(false)}
-                className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl hover:shadow-orange-500/40 transition-all"
+                className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl transition-all"
               >
                 Save Changes
               </button>
@@ -686,7 +631,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 2. Modal Add Widget (bawaan) */}
+      {/* 2. Modal Add Widget */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
@@ -701,46 +646,6 @@ export default function Dashboard() {
                 <X className="w-6 h-6 text-gray-600" />
               </button>
             </div>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Widget Type
-                </label>
-                <select className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-400 focus:outline-none font-semibold text-gray-700">
-                  <option>Chart Widget</option>
-                  <option>Stats Widget</option>
-                  <option>List Widget</option>
-                  <option>Goal Widget</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Widget Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter widget name..."
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-400 focus:outline-none font-semibold text-gray-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Position
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="px-4 py-3 rounded-xl border-2 border-orange-300 bg-orange-50 font-bold text-orange-700 hover:bg-orange-100 transition-all">
-                    Top
-                  </button>
-                  <button className="px-4 py-3 rounded-xl border-2 border-gray-200 font-bold text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition-all">
-                    Bottom
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <div className="flex gap-3">
               <button
                 onClick={() => setShowAddModal(false)}
@@ -753,7 +658,7 @@ export default function Dashboard() {
                   setShowAddModal(false);
                   alert("Widget added successfully!");
                 }}
-                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl hover:shadow-orange-500/40 transition-all"
+                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl transition-all"
               >
                 Add Widget
               </button>
@@ -762,32 +667,37 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 3. MODAL: Product Category CRUD */}
+      {/* 3. CRUD Modals */}
       <ProductCategoryModal
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
-        onUpdateTotal={(total) => setCategoryCount(total)}
+        onUpdateTotal={(total) =>
+          setCounts((prev) => ({ ...prev, categories: total }))
+        }
       />
 
-      {/* 4. MODAL: Product CRUD */}
       <ProductModal
         isOpen={showProductModal}
         onClose={() => setShowProductModal(false)}
-        onUpdateTotal={(total) => setProductCount(total)}
+        onUpdateTotal={(total) =>
+          setCounts((prev) => ({ ...prev, products: total }))
+        }
       />
 
-      {/* 5. MODAL: Segment CRUD */}
       <SegmentModal
         isOpen={showSegmentModal}
         onClose={() => setShowSegmentModal(false)}
-        onUpdateTotal={(total) => setSegmentCount(total)}
+        onUpdateTotal={(total) =>
+          setCounts((prev) => ({ ...prev, segments: total }))
+        }
       />
 
-      {/* 6. MODAL BARU: Stage CRUD */}
       <StageModal
         isOpen={showStageModal}
         onClose={() => setShowStageModal(false)}
-        onUpdateTotal={(total) => setStageCount(total)}
+        onUpdateTotal={(total) =>
+          setCounts((prev) => ({ ...prev, stages: total }))
+        }
       />
     </div>
   );

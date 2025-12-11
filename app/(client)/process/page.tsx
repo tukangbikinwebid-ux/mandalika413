@@ -1,59 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import * as XLSX from "xlsx";
-
-// Definisi Tipe Data Lengkap Sesuai Kolom Excel
-type BankingRow = {
-  id: number;
-  // Data Mentah dari Excel
-  kodeCabang: string;
-  noRekening: string;
-  akad: string;
-  namaNasabah: string;
-  alamatNasabah: string;
-  kodeProduk: string;
-  startDate: string;
-  maturityDate: string;
-  plafond: number;
-  pokokSisa: number;
-  marginSisa: number;
-  totalOutstanding: number;
-  noCif: string;
-  namaProduk: string;
-  persenMargin: number;
-  dayPastDue: number;
-  
-  pd: number;   // Q (Probability of Default)
-  lgd: number;  // R (Loss Given Default)
-  ead: number;  // S (Exposure at Default)
-  
-  psak413: number; 
-  
-  status: "Pending" | "Processing" | "Done";
-};
+import { api } from "@/services/api";
+import type {
+  PSAK413Import,
+  CreateImportRequest,
+} from "@/services/api";
+import type { PSAK413Detail } from "@/services/api";
+import {
+  Loader2,
+  FileSpreadsheet,
+  FileType,
+  UploadCloud,
+  CheckCircle,
+  X,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import Swal from "sweetalert2";
 
 // --- Helper Functions ---
-
-// 1. Parser Angka Indonesia (cth: "50.000.000,00" -> 50000000)
-const parseIndonesianNumber = (val: string | number | undefined): number => {
-  if (typeof val === "number") return val;
-  if (!val) return 0;
-  // Hapus titik ribuan, ganti koma desimal jadi titik
-  const cleanStr = val.toString().replace(/\./g, "").replace(",", ".");
-  return parseFloat(cleanStr) || 0;
-};
-
-// 2. Parser Persen Indonesia (cth: "2,50%" -> 0.025)
-const parseIndonesianPercent = (val: string | number | undefined): number => {
-  if (typeof val === "number") return val < 1 ? val : val / 100; 
-  if (!val) return 0;
-  const cleanStr = val.toString().replace("%", "").replace(",", ".");
-  const num = parseFloat(cleanStr);
-  return num ? num / 100 : 0; 
-};
-
-// 3. Format Currency (Rp)
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -61,193 +28,191 @@ const formatCurrency = (val: number) =>
     minimumFractionDigits: 2,
   }).format(val);
 
-// 4. Format Persen (%)
 const formatPercent = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "percent",
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
-  }).format(val);
+  }).format(val / 100);
 
-// 5. Format Tanggal (Serial Excel ke String atau String ke String)
-const formatDate = (val: string | number | undefined) => {
-  if (!val) return "-";
-  // Jika Excel memberikan serial number date (misal 44123)
-  if (typeof val === 'number') {
-    const date = new Date(Math.round((val - 25569)*86400*1000));
-    return date.toLocaleDateString("id-ID");
-  }
-  return val.toString();
+const formatDate = (dateString: string) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  // Validasi tanggal valid
+  if (isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 export default function ProcessPage() {
+  // --- States UI ---
   const [hovered, setHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [rows, setRows] = useState<BankingRow[]>([]);
-  const [started, setStarted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [fileName, setFileName] = useState<string>("");
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // State untuk nama file lokal
+  const [localFileName, setLocalFileName] = useState<string>("");
+
+  // --- States Data ---
+  const [currentImport, setCurrentImport] = useState<PSAK413Import | null>(
+    null
+  );
+  const [details, setDetails] = useState<PSAK413Detail[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalDetails, setTotalDetails] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- 1. Load Latest Data on Mount ---
+  useEffect(() => {
+    fetchLatestImport();
+  }, []);
+
+  const fetchLatestImport = async () => {
+    try {
+      const res = await api.psak413Import.getAll({
+        page: 1,
+        paginate: 1,
+        orderBy: "created_at",
+        order: "desc",
+        is_finished: 1,
+      });
+
+      if (res.code === 200 && res.data.data.length > 0) {
+        const latestData = res.data.data[0];
+        setCurrentImport(latestData);
+        setLocalFileName(latestData.filename);
+
+        // Fetch details
+        fetchDetails(latestData.id, 1);
+      }
+    } catch (error) {
+      console.error("Failed to load history", error);
+    }
+  };
+
+  const fetchDetails = async (importId: string, pageNum: number) => {
+    setLoadingDetails(true);
+    try {
+      const res = await api.psak413Detail.getAll({
+        psak413_import_id: importId,
+        page: pageNum,
+        paginate: 10, // Match UI
+        orderBy: "psak413_import_details.id",
+        order: "asc",
+      });
+
+      if (res.code === 200) {
+        setDetails(res.data.data);
+        setTotalDetails(res.data.total);
+        setTotalPages(res.data.last_page);
+        setPage(pageNum);
+      }
+    } catch (error) {
+      console.error("Failed to fetch details", error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // --- 2. Handle File Select ---
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLocalFileName(file.name);
+  };
+
+  // --- 3. Handle Process (Upload & Calculate) ---
+  const handleConfirmProcess = async () => {
+    setConfirmOpen(false);
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    setRunning(true);
+    setProgress(10); // Start progress bar
+
+    try {
+      const payload: CreateImportRequest = {
+        file: file,
+      };
+
+      // Upload File
+      // Simulasi progress bar agar terlihat 'processing'
+      const interval = setInterval(() => {
+        setProgress((prev) => (prev < 90 ? prev + 10 : prev));
+      }, 200);
+
+      const res = await api.psak413Import.create(payload);
+
+      clearInterval(interval);
+      setProgress(100);
+
+      if (res.code === 200 && res.data) {
+        setCurrentImport(res.data);
+        setRunning(false);
+        setShowSuccess(true);
+
+        // Fetch detail data hasil proses (reset ke page 1)
+        fetchDetails(res.data.id, 1);
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Memproses",
+        text: "Terjadi kesalahan saat mengupload atau memproses file.",
+        confirmButtonText: "Tutup",
+        confirmButtonColor: "#f97316",
+      });
+      setRunning(false);
+      setProgress(0);
+    }
+  };
+
+  // --- 4. Helper Reset ---
   const resetAll = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
     setHovered(false);
     setConfirmOpen(false);
     setRunning(false);
     setProgress(0);
-    setRows([]);
-    setStarted(false);
+    setDetails([]);
     setShowSuccess(false);
-    setFileName("");
+    setLocalFileName("");
+    setCurrentImport(null);
+    setTotalDetails(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // --- FUNGSI 1: UPLOAD & BACA SEMUA KOLOM ---
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setFileName(file.name);
-    
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: "binary" });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      
-      const dataRaw: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
-
-      const mappedData: BankingRow[] = dataRaw.map((row, index) => {
-        // Mapping detil semua kolom
-        return {
-          id: index + 1,
-          kodeCabang: String(row["KODE_CABANG"] ?? ""),
-          noRekening: String(row["NO_REKENING"] ?? ""),
-          akad: String(row["AKAD"] ?? ""),
-          namaNasabah: String(row["NAMA_NASABAH"] ?? ""),
-          alamatNasabah: String(row["ALAMAT_NASABAH"] ?? ""),
-          kodeProduk: String(row["KODE_PRODUK"] ?? ""),
-          startDate: formatDate(row["START_DATE"] as string | number | undefined),
-          maturityDate: formatDate(row["MATURITY_DATE"] as string | number | undefined),
-          plafond: parseIndonesianNumber(row["PLAFOND"] as string | number | undefined),
-          pokokSisa: parseIndonesianNumber(Number(row["POKOK_SISA"])),
-          marginSisa: parseIndonesianNumber(Number(row["MARGIN_SISA"])),
-          totalOutstanding: parseIndonesianNumber(Number(row["TOTAL_OUTSTANDING"])),
-          noCif: String(row["NO_CIF"] ?? ""),
-          namaProduk: String(row["NAMA_PRODUK"] ?? ""),
-          persenMargin: parseIndonesianPercent(row["PERSEN_MARGIN_PINJAMAN"] as string | number | undefined),
-          dayPastDue: parseInt(String(row["DAY_PAST_DUE"])) || 0,
-          
-          // Kolom Kunci Rumus
-          pd: parseIndonesianPercent(row["PD"] as string | number | undefined),
-          lgd: parseIndonesianPercent(row["LGD"] as string | number | undefined),
-          ead: parseIndonesianNumber(row["EAD"] as string | number | undefined),
-          
-          psak413: 0, // Inisialisasi 0
-          status: "Pending",
-        };
-      });
-
-      setRows(mappedData);
-    };
-    reader.readAsBinaryString(file);
+  // --- 5. Download Templates ---
+  const handleDownloadTemplate = (type: "excel" | "csv") => {
+    api.psak413Import.downloadTemplate(type);
   };
 
-  // --- FUNGSI 2: PROSES HITUNG ---
-  const handleConfirm = () => {
-    setConfirmOpen(false);
-    if (running || rows.length === 0) return;
-    
-    setStarted(true);
-    setRunning(true);
-    setProgress(0);
-
-    let currentIndex = 0;
-    const total = rows.length;
-
-    timerRef.current = setInterval(() => {
-      const batchSize = Math.max(1, Math.floor(total / 40)); // Batch processing agar UI smooth
-      
-      setRows((prevRows) => {
-        const newRows = [...prevRows];
-        for (let i = -1; i < batchSize; i++) {
-          const idx = currentIndex + i;
-          if (idx < total) {
-            const row = newRows[idx];
-            // RUMUS: PD * LGD * EAD
-            const result = row.pd * row.lgd * row.ead;
-            
-            newRows[idx] = {
-              ...row,
-              psak413: result,
-              status: "Done",
-            };
-          }
-        }
-        return newRows;
-      });
-
-      currentIndex += batchSize;
-      const currentProgress = Math.min(100, Math.round((currentIndex / total) * 100));
-      setProgress(currentProgress);
-
-      if (currentIndex >= total) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setRunning(false);
-        setTimeout(() => setShowSuccess(true), 500);
-      }
-    }, 50); // Speed update
+  // Pagination Handlers
+  const handleNextPage = () => {
+    if (page < totalPages && currentImport?.id) {
+      fetchDetails(currentImport.id, page + 1);
+    }
+  };
+  const handlePrevPage = () => {
+    if (page > 1 && currentImport?.id) {
+      fetchDetails(currentImport.id, page - 1);
+    }
   };
 
-  // --- FUNGSI 3: EXPORT SEMUA DATA ---
-  const handleExportExcel = () => {
-    // Map ulang agar urutan kolom rapih dan format angka benar
-    const dataToExport = rows.map((row) => ({
-      "KODE_CABANG": row.kodeCabang,
-      "NO_REKENING": row.noRekening,
-      "AKAD": row.akad,
-      "NAMA_NASABAH": row.namaNasabah,
-      "ALAMAT_NASABAH": row.alamatNasabah,
-      "KODE_PRODUK": row.kodeProduk,
-      "START_DATE": row.startDate,
-      "MATURITY_DATE": row.maturityDate,
-      "PLAFOND": row.plafond,
-      "POKOK_SISA": row.pokokSisa,
-      "MARGIN_SISA": row.marginSisa,
-      "TOTAL_OUTSTANDING": row.totalOutstanding,
-      "NO_CIF": row.noCif,
-      "NAMA_PRODUK": row.namaProduk,
-      "PERSEN_MARGIN": row.persenMargin, // Dalam desimal (biar user bisa format % di excel sendiri)
-      "DAY_PAST_DUE": row.dayPastDue,
-      "PD": row.pd,
-      "LGD": row.lgd,
-      "EAD": row.ead,
-      "PSAK_413 (HASIL)": row.psak413 // Kolom Hasil
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    
-    // Auto width columns (opsional, biar rapi)
-    const wscols = Object.keys(dataToExport[0]).map(() => ({ wch: 15 }));
-    worksheet['!cols'] = wscols;
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Hasil PSAK 413");
-    XLSX.writeFile(workbook, `Hasil_PSAK413_${new Date().getTime()}.xlsx`);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const canStart = !running && rows.length > 0 && !started;
+  // Logic UI
+  const hasData = !!currentImport;
+  const canStart =
+    !running && !!localFileName && fileInputRef.current?.files?.length === 1;
 
   return (
     <div className="min-h-[100dvh] bg-white p-4 md:p-8 font-sans text-slate-800">
@@ -262,38 +227,63 @@ export default function ProcessPage() {
               Kalkulator PSAK 413
             </h1>
             <p className="text-sm text-gray-600">
-              Upload Excel Lengkap &rarr; Hitung CKPN (PD × LGD × EAD)
+              Upload Excel Lengkap &rarr; Hitung CKPN via Backend System
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="flex gap-2 mr-2">
+            <button
+              onClick={() => handleDownloadTemplate("excel")}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all"
+              title="Download Template Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Template .xlsx
+            </button>
+            <button
+              onClick={() => handleDownloadTemplate("csv")}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-bold transition-all"
+              title="Download Template CSV"
+            >
+              <FileType className="w-4 h-4" /> Template .csv
+            </button>
+          </div>
+
           <input
             type="file"
             accept=".xlsx, .xls, .csv"
             ref={fileInputRef}
-            onChange={handleFileUpload}
+            onChange={handleFileSelect}
             className="hidden"
-            disabled={running || started}
+            disabled={running}
           />
 
-          {!fileName ? (
+          {!localFileName ? (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm"
             >
-              <span>📂 Upload Excel</span>
+              <UploadCloud className="w-5 h-5" />
+              <span>Pilih File</span>
             </button>
           ) : (
             <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
               <div className="flex flex-col">
-                <span className="text-xs text-blue-500 font-bold uppercase tracking-wider">File Terpilih</span>
-                <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px]">{fileName}</span>
+                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
+                  File Terpilih
+                </span>
+                <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px]">
+                  {localFileName}
+                </span>
               </div>
-              {!started && !running && (
-                <button onClick={resetAll} className="p-1 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors">
-                  ✕
+              {!running && (
+                <button
+                  onClick={resetAll}
+                  className="p-1 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -305,114 +295,266 @@ export default function ProcessPage() {
             onMouseLeave={() => setHovered(false)}
             disabled={!canStart}
             className={[
-              "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all",
-              !canStart 
-                ? "bg-gray-300 cursor-not-allowed" 
-                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200"
+              "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2",
+              !canStart
+                ? "bg-gray-300 cursor-not-allowed"
+                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200",
             ].join(" ")}
           >
-             {hovered ? "Jalankan Skrip ⚡" : "Mulai Proses ▶"}
+            {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+            {hovered && !running ? "Jalankan Proses ⚡" : "Mulai Proses ▶"}
           </button>
         </div>
       </div>
 
       {/* Main Layout */}
       <div className="grid gap-6 lg:grid-cols-4">
-        
         {/* Sidebar Status */}
         <div className="lg:col-span-1 space-y-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Progress</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+              Status Proses
+            </h3>
             <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl font-black text-gray-900">{progress}%</span>
-              <span className="text-sm font-medium text-gray-500 mb-1.5">Selesai</span>
+              <span className="text-4xl font-black text-gray-900">
+                {progress}%
+              </span>
+              <span className="text-sm font-medium text-gray-500 mb-1.5">
+                Completed
+              </span>
             </div>
             <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="mt-4 text-xs text-gray-500 text-center bg-gray-50 p-3 rounded-lg border border-gray-100">
-              {running ? "Sedang menghitung baris per baris..." : 
-               started ? "Proses selesai. Siap unduh." : 
-               rows.length > 0 ? `${rows.length} Data siap diproses` : "Menunggu file..."}
+
+            <div className="mt-6 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Status</span>
+                <span
+                  className={`font-bold ${
+                    running
+                      ? "text-amber-500"
+                      : hasData
+                      ? "text-emerald-600"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {running ? "Processing..." : hasData ? "Finished" : "Idle"}
+                </span>
+              </div>
+              {hasData && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Total Rows</span>
+                    <span className="font-bold text-gray-900">
+                      {currentImport?.rows}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Success</span>
+                    <span className="font-bold text-emerald-600">
+                      {currentImport?.successful_rows}
+                    </span>
+                  </div>
+                  <div className="pt-3 border-t border-gray-100 mt-2">
+                    <p className="text-xs text-gray-400 mb-1">
+                      Total Amount (PSAK 413)
+                    </p>
+                    <p className="text-lg font-black text-blue-700 truncate">
+                      {formatCurrency(currentImport?.total_psak413_amount || 0)}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 text-xs text-gray-500 text-center bg-gray-50 p-3 rounded-lg border border-gray-100 italic">
+              {running
+                ? "Mengupload & Memproses data..."
+                : hasData
+                ? `Data dari ${formatDate(currentImport?.created_at || "")}`
+                : "Silakan upload file Excel/CSV."}
             </div>
           </div>
         </div>
 
-        {/* Data Table Section - Full Width & Scrollable */}
+        {/* Data Table Section */}
         <div className="lg:col-span-3">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[70vh]">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[75vh]">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
-              <h2 className="font-bold text-gray-800">Preview Data ({rows.length} Rows)</h2>
-              {rows.length > 0 && !running && (
-                <button 
-                  onClick={handleExportExcel}
-                  className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-emerald-700 shadow-md shadow-emerald-100 transition-all"
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-gray-800">Preview Data Detail</h2>
+                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                  {totalDetails} Rows
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={page === 1 || loadingDetails}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  📥 Download Excel Lengkap
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-              )}
+                <span className="text-xs font-medium text-gray-600 min-w-[80px] text-center">
+                  Page {page} / {totalPages || 1}
+                </span>
+                <button
+                  onClick={handleNextPage}
+                  disabled={page === totalPages || loadingDetails}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            
+
             <div className="flex-1 overflow-auto w-full relative">
               <table className="min-w-max text-xs text-left text-gray-600">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-100 font-bold sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="px-4 py-3 whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20">PSAK 413 (Hasil)</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Kode Cab</th>
-                    <th className="px-4 py-3 whitespace-nowrap">No Rekening</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Nama Nasabah</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Alamat</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Produk</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Akad</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">Plafond</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">Pokok Sisa</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">Margin Sisa</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">Total OS</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">EAD</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">PD</th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right">LGD</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Start Date</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Maturity</th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      PSAK 413
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Kode Cab
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      No Rekening
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Nama Nasabah
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Alamat
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Produk
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Akad
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Plafond
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Pokok Sisa
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Margin Sisa
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Total OS
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      EAD
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      PD
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      LGD
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Start Date
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Maturity
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {rows.length === 0 ? (
+                  {loadingDetails ? (
                     <tr>
-                      <td colSpan={17} className="px-6 py-24 text-center text-gray-400">
-                        <div className="flex flex-col items-center gap-2">
-                          <span className="text-4xl opacity-50">📂</span>
-                          <span>Belum ada data yang diupload</span>
+                      <td
+                        colSpan={17}
+                        className="px-6 py-32 text-center text-gray-400"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                          <span className="text-sm font-medium">
+                            Mengambil data...
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : details.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={17}
+                        className="px-6 py-32 text-center text-gray-400"
+                      >
+                        <div className="flex flex-col items-center gap-3 opacity-60">
+                          <AlertCircle className="w-10 h-10 text-gray-300" />
+                          <span>Belum ada data untuk ditampilkan</span>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    rows.map((row) => (
-                      <tr key={row.id} className="hover:bg-yellow-50 transition-colors">
+                    details.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-yellow-50 transition-colors group"
+                      >
                         <td className="px-4 py-2 text-center">
-                          <span className={`inline-block w-2 h-2 rounded-full ${row.status === 'Done' ? 'bg-emerald-500' : row.status === 'Processing' ? 'bg-amber-400 animate-pulse' : 'bg-gray-300'}`}></span>
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
                         </td>
-                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/30 border-x border-blue-50 text-right sticky left-0 z-10">
-                          {row.status === 'Pending' ? '-' : formatCurrency(row.psak413)}
+                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/50 group-hover:bg-blue-100/50 border-x border-blue-50 text-right sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                          {formatCurrency(row.psak413_amount)}
                         </td>
-                        <td className="px-4 py-2">{row.kodeCabang}</td>
-                        <td className="px-4 py-2 font-mono">{row.noRekening}</td>
-                        <td className="px-4 py-2 font-medium text-gray-900">{row.namaNasabah}</td>
-                        <td className="px-4 py-2 truncate max-w-[150px]" title={row.alamatNasabah}>{row.alamatNasabah}</td>
-                        <td className="px-4 py-2">{row.kodeProduk}</td>
+                        <td className="px-4 py-2">{row.cab}</td>
+                        <td className="px-4 py-2 font-mono text-gray-500">
+                          {row.no_rekening}
+                        </td>
+                        <td className="px-4 py-2 font-medium text-gray-900">
+                          {row.nama_nasabah}
+                        </td>
+                        <td
+                          className="px-4 py-2 truncate max-w-[150px]"
+                          title={row.alamat_nasabah}
+                        >
+                          {row.alamat_nasabah}
+                        </td>
+                        <td className="px-4 py-2">{row.product_code}</td>
                         <td className="px-4 py-2">{row.akad}</td>
-                        <td className="px-4 py-2 text-right">{formatCurrency(row.plafond)}</td>
-                        <td className="px-4 py-2 text-right">{formatCurrency(row.pokokSisa)}</td>
-                        <td className="px-4 py-2 text-right">{formatCurrency(row.marginSisa)}</td>
-                        <td className="px-4 py-2 text-right">{formatCurrency(row.totalOutstanding)}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatCurrency(row.ead)}</td>
-                        <td className="px-4 py-2 text-right">{formatPercent(row.pd)}</td>
-                        <td className="px-4 py-2 text-right">{formatPercent(row.lgd)}</td>
-                        <td className="px-4 py-2 text-right">{row.startDate}</td>
-                        <td className="px-4 py-2 text-right">{row.maturityDate}</td>
+                        <td className="px-4 py-2 text-right text-gray-500">
+                          {formatCurrency(row.plafond)}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {formatCurrency(row.os_pokok)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-500">
+                          {formatCurrency(row.os_margin)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium">
+                          {formatCurrency(row.os_total)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-gray-800">
+                          {formatCurrency(row.ead)}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                            {formatPercent(row.pd)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                            {formatPercent(row.lgd)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-gray-500">
+                          {formatDate(row.start_date)}
+                        </td>
+                        <td className="px-4 py-2 text-gray-500">
+                          {formatDate(row.maturity_date)}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -423,35 +565,55 @@ export default function ProcessPage() {
         </div>
       </div>
 
-      {/* Success Modal */}
+      {/* Confirmation Modal */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900">Konfirmasi</h3>
-            <p className="text-sm text-gray-600 mt-2 mb-6">
-              Mulai kalkulasi untuk <b>{rows.length} baris data</b>? <br/>
-              Pastikan kolom PD, LGD, dan EAD sudah terisi di Excel.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 transform transition-all scale-100">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              Konfirmasi Proses
+            </h3>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+              Anda akan mengupload file <b>{localFileName}</b>. <br />
+              Sistem akan menghitung ulang CKPN berdasarkan parameter terbaru.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmOpen(false)} className="flex-1 px-4 py-2 rounded-xl border border-gray-200 font-medium text-gray-600 hover:bg-gray-50">Batal</button>
-              <button onClick={handleConfirm} className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 shadow-lg shadow-amber-200">Ya, Hitung</button>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmProcess}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold hover:shadow-lg hover:shadow-orange-200 transition-all transform hover:-translate-y-0.5"
+              >
+                Ya, Proses
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-[fadeInUp_0.4s_ease-out]">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🎉</div>
-            <h2 className="text-2xl font-black text-gray-900">Selesai!</h2>
-            <p className="text-gray-600 mt-2 mb-8">
-              Perhitungan PSAK 413 berhasil diselesaikan. Silakan unduh hasilnya.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <CheckCircle className="w-10 h-10" />
+            </div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">
+              Berhasil!
+            </h2>
+            <p className="text-gray-600 mb-8">
+              File telah berhasil diupload dan diproses. Data hasil perhitungan
+              dapat dilihat pada tabel.
             </p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowSuccess(false)} className="flex-1 px-4 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Tutup</button>
-              <button onClick={() => { handleExportExcel(); setShowSuccess(false); }} className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xl shadow-emerald-200">
-                Download Excel
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowSuccess(false)}
+                className="px-8 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all transform hover:-translate-y-1"
+              >
+                Lihat Hasil
               </button>
             </div>
           </div>

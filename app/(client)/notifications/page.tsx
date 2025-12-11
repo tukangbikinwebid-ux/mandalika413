@@ -69,7 +69,7 @@ export default function NotificationPage() {
     }
   };
 
-  const handleDownload = async (id: string, link: string) => {
+  const handleDownload = async (id: string, url: string) => {
     try {
       // Tandai dibaca dulu
       await api.notification.markAsRead(id);
@@ -79,8 +79,8 @@ export default function NotificationPage() {
           n.id === id ? { ...n, read_at: new Date().toISOString() } : n
         )
       );
-      // Buka link
-      window.open(link, "_blank");
+      // Buka url
+      window.open(url, "_blank");
     } catch (err) {
       console.error("Gagal mengunduh:", err);
     }
@@ -243,12 +243,12 @@ export default function NotificationPage() {
                           <div className="flex items-center gap-2">
                             {!n.read_at && (
                               <>
-                                {n.data.link ? (
+                                {n.data.url ? (
                                   <Button
                                     size="sm"
                                     className="h-8 bg-orange-500 hover:bg-orange-600 text-white text-xs gap-2"
                                     onClick={() =>
-                                      handleDownload(n.id, n.data.link!)
+                                      handleDownload(n.id, n.data.url!)
                                     }
                                   >
                                     <Download className="w-3 h-3" />
