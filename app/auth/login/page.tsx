@@ -5,7 +5,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, Mail, Zap } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+// import Link from "next/link";
 
 const getErrorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : "Terjadi kesalahan tak terduga.";
@@ -129,7 +129,7 @@ function LoginPage() {
             )}
           </button>
 
-          <p className="text-center text-xs text-yellow-600">
+          {/* <p className="text-center text-xs text-yellow-600">
             Belum punya akun?{" "}
             <Link
               href="/auth/register"
@@ -137,7 +137,7 @@ function LoginPage() {
             >
               Daftar sekarang
             </Link>
-          </p>
+          </p> */}
         </form>
       </div>
 

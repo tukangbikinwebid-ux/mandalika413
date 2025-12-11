@@ -64,10 +64,6 @@ const TOP5_BRANCH: BranchItem[] = [
     value: 47_804_130_613,
     color: "#7CB5FF",
   },
-  { label: "060 – CABANG 060", value: 19_940_592_243, color: "#374151" },
-  { label: "085 – CABANG 085", value: 19_069_596_797, color: "#86EFAC" },
-  { label: "500 – CABANG 500", value: 17_937_455_518, color: "#FDBA74" },
-  { label: "011 – CABANG 011", value: 15_581_438_602, color: "#A78BFA" },
 ];
 
 const STAGES: StageItem[] = [
@@ -549,7 +545,7 @@ export default function Dashboard() {
       </div>
 
       {/* ===== Hasil Proses (Chart ECL) ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-6 mb-8">
         <Card title="Top 5 Expected Credit Loss by Branch">
           <div className="h-96 w-full overflow-x-auto">
             <div className="min-w-[720px] h-full">
