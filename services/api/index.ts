@@ -1,85 +1,56 @@
-// Export all API services
-export { authService } from './auth';
-export { productsService } from './products';
-export { ordersService } from './orders';
-export { productCategoriesService } from './product-categories';
-export { newsCategoriesService } from './news-categories';
-export { newsTagsService } from './news-tags';
-export { newsArticlesService } from './news-articles';
-export { depositsService } from './deposits';
-export { transactionService } from './transactions';
-export { default as BaseApiService } from './base';
-export type { ApiResponse, ApiError } from './base';
-export type { LoginRequest, LoginResponse, User } from './auth';
-export type { Order, CreateOrderRequest, UpdateOrderStatusRequest } from './orders';
-export type { 
-  ProductCategory, 
-  CreateProductCategoryRequest, 
-  UpdateProductCategoryRequest,
-  ProductCategoryPaginationParams,
-  ProductCategoryPaginatedResponse
-} from './product-categories';
-export type { 
-  Product, 
-  CreateProductRequest, 
+// Existing exports...
+export { authService } from "./auth";
+export { default as BaseApiService } from "./base";
+export type { ApiResponse, ApiError } from "./base";
+export type { LoginRequest, LoginResponse, User } from "./auth";
+
+// --- Product Category Exports ---
+export type {
+  ProductCategory,
+  ProductCategoryParams,
+  CreateProductCategoryRequest,
+} from "@/services/api/master/product-categories";
+
+export type {
+  Product,
+  ProductParams,
+  CreateProductRequest,
   UpdateProductRequest,
-  ProductPaginationParams,
-  ProductPaginatedResponse
-} from './products';
+} from "@/services/api/master/product";
+
 export type {
-  NewsCategory,
-  CreateNewsCategoryRequest,
-  UpdateNewsCategoryRequest,
-  NewsCategoryPaginationParams,
-  NewsCategoryPaginatedResponse
-} from './news-categories';
+  Segment,
+  SegmentParams,
+  CreateSegmentRequest,
+  UpdateSegmentRequest,
+} from "@/services/api/master/segment";
+
 export type {
-  NewsTag,
-  CreateNewsTagRequest,
-  UpdateNewsTagRequest,
-  NewsTagPaginationParams,
-  NewsTagPaginatedResponse
-} from './news-tags';
+  Stage,
+  StageParams,
+  CreateStageRequest,
+  UpdateStageRequest,
+} from "@/services/api/master/stages";
+
 export type {
-  NewsArticle,
-  CreateNewsArticleRequest,
-  UpdateNewsArticleRequest,
-  NewsArticlePaginationParams,
-  NewsArticlePaginatedResponse
-} from './news-articles';
-export type {
-  Deposit,
-  CreateDepositRequest,
-  UpdateDepositRequest,
-  DepositPaginationParams,
-  DepositPaginatedResponse
-} from '@/lib/types/deposits';
-export type {
-  Transaction,
-  TransactionListResponse,
-  TransactionFilters,
-  TransactionStats
-} from '@/lib/types/transactions';
+  Notification,
+  NotificationData,
+  NotificationParams,
+} from "@/services/api/notification";
 
 // Main API service instance
-import { authService } from './auth';
-import { productsService } from './products';
-import { ordersService } from './orders';
-import { productCategoriesService } from './product-categories';
-import { newsCategoriesService } from './news-categories';
-import { newsTagsService } from './news-tags';
-import { newsArticlesService } from './news-articles';
-import { depositsService } from './deposits';
-import { transactionService } from './transactions';
+import { authService } from "./auth";
+import { productCategoryService } from "@/services/api/master/product-categories";
+import { productService } from "@/services/api/master/product";
+import { segmentService } from "@/services/api/master/segment"; 
+import { stageService } from "@/services/api/master/stages";
+import { notificationService } from "@/services/api/notification";
 
 export const api = {
   auth: authService,
-  products: productsService,
-  orders: ordersService,
-  productCategories: productCategoriesService,
-  newsCategories: newsCategoriesService,
-  newsTags: newsTagsService,
-  newsArticles: newsArticlesService,
-  deposits: depositsService,
-  transactions: transactionService,
+  productCategory: productCategoryService,
+  product: productService,
+  segment: segmentService,
+  stage: stageService,
+  notification: notificationService,
 };

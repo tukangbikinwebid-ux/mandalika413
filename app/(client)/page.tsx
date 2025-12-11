@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -9,14 +9,13 @@ import {
   Grid3x3,
   Plus,
   ChevronDown,
-  ArrowRight,
   X,
   Clock,
   DollarSign,
-  PieChart as PieIcon,
-  BarChart3,
-  Filter,
-  Banknote,
+  Box,
+  Package,
+  Layers, // Segment Icon
+  ListOrdered, // Stage Icon
 } from "lucide-react";
 
 import {
@@ -32,6 +31,13 @@ import {
   Title,
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
+
+// --- IMPORT SERVICE & MODAL ---
+import { api } from "@/services/api";
+import ProductCategoryModal from "@/components/modals/product-category-modal";
+import ProductModal from "@/components/modals/product-modal";
+import SegmentModal from "@/components/modals/segment-modal";
+import StageModal from "@/components/modals/stages-modal";
 
 ChartJS.register(
   CategoryScale,
@@ -52,24 +58,19 @@ const rupiah = (n: number): string =>
 
 const ECL_DATE = "31-10-2025";
 
-/* =================== DUMMY DATA HASIL PROSES (ganti dari API) =================== */
+/* =================== DUMMY DATA HASIL PROSES =================== */
 type BranchItem = { label: string; value: number; color: string };
 type StageItem = { label: string; value: number; color: string };
 type SegmentItem = { label: string; lifetime: number; m12: number };
 type GenericItem = { label: string; value: number };
 
 const TOP5_BRANCH: BranchItem[] = [
-  {
-    label: "010 – CABANG UTAMA 010",
-    value: 47_804_130_613,
-    color: "#7CB5FF",
-  },
+  { label: "010 – CABANG UTAMA 010", value: 47_804_130_613, color: "#7CB5FF" },
 ];
 
 const STAGES: StageItem[] = [
   { label: "Stage 1", value: 55_627_373_809, color: "#7CB5FF" },
   { label: "Stage 2", value: 19_298_091_845, color: "#374151" },
-  // { label: "Stage 3", value: 186_241_125_031, color: "#86EFAC" },
 ];
 
 const BY_SEGMENT: SegmentItem[] = [
@@ -127,26 +128,56 @@ function Card({
 
 /* =================== DASHBOARD =================== */
 export default function Dashboard() {
-  /* Header & widget (dipertahankan) */
+  /* Header & widget states */
   const [selectedPeriod, setSelectedPeriod] = useState("This month");
-  const [selectedAccount, setSelectedAccount] = useState("All accounts");
-  const [selectedYear, setSelectedYear] = useState("This year");
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
-  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showWidgetModal, setShowWidgetModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const periods = ["Today", "This week", "This month", "This year", "All time"];
-  const accounts = [
-    "All accounts",
-    "Consolidated",
-    "Head Office",
-    "All Branches",
-  ];
-  const years = ["This year", "2024", "2023", "2022"];
+  // --- STATE DATA ---
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryCount, setCategoryCount] = useState(0);
 
-  /* ======= Stats atas (placeholder) ======= */
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productCount, setProductCount] = useState(0);
+
+  const [showSegmentModal, setShowSegmentModal] = useState(false);
+  const [segmentCount, setSegmentCount] = useState(0);
+
+  // NEW: State for Stage
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [stageCount, setStageCount] = useState(0);
+
+  const periods = ["Today", "This week", "This month", "This year", "All time"];
+
+  // --- FETCH DATA DASHBOARD ---
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        // Fetch Categories Count
+        const resCat = await api.productCategory.getAll({ paginate: 1 });
+        if (resCat.code === 200) setCategoryCount(resCat.data.total);
+
+        // Fetch Products Count
+        const resProd = await api.product.getAll({ paginate: 1 });
+        if (resProd.code === 200) setProductCount(resProd.data.total);
+
+        // Fetch Segments Count
+        const resSeg = await api.segment.getAll({ paginate: 1 });
+        if (resSeg.code === 200) setSegmentCount(resSeg.data.total);
+
+        // Fetch Stages Count
+        const resStage = await api.stage.getAll({ paginate: 1 });
+        if (resStage.code === 200) setStageCount(resStage.data.total);
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats", error);
+      }
+    };
+
+    fetchDashboardStats();
+  }, []);
+
+  /* ======= Stats List (Dinamis) ======= */
   const stats = [
     {
       title: "Total ECL (Provision)",
@@ -156,37 +187,55 @@ export default function Dashboard() {
       isPositive: true,
       icon: DollarSign,
       gradient: "from-yellow-400 to-orange-500",
+      onClick: undefined,
     },
-    // {
-    //   title: "Movement (Month)",
-    //   amount: rupiah(8_500_000_000),
-    //   cents: "",
-    //   change: "+6.3%",
-    //   isPositive: true,
-    //   icon: TrendingUp,
-    //   gradient: "from-green-400 to-emerald-500",
-    // },
-    // {
-    //   title: "Write-off Impact",
-    //   amount: rupiah(6_222_000_000),
-    //   cents: "",
-    //   change: "-2.4%",
-    //   isPositive: false,
-    //   icon: TrendingDown,
-    //   gradient: "from-orange-400 to-red-500",
-    // },
-    // {
-    //   title: "Coverage Ratio",
-    //   amount: "112.4%",
-    //   cents: "",
-    //   change: "+0.4%",
-    //   isPositive: true,
-    //   icon: PieIcon,
-    //   gradient: "from-amber-400 to-yellow-500",
-    // },
-  ] as const;
+    // --- Widget Product Category ---
+    {
+      title: "Product Categories",
+      amount: categoryCount.toLocaleString("id-ID"),
+      cents: " Items",
+      change: "Manage",
+      isPositive: true,
+      icon: Box,
+      gradient: "from-blue-400 to-indigo-500",
+      onClick: () => setShowCategoryModal(true),
+    },
+    // --- Widget Products ---
+    {
+      title: "Products",
+      amount: productCount.toLocaleString("id-ID"),
+      cents: " Items",
+      change: "Manage",
+      isPositive: true,
+      icon: Package,
+      gradient: "from-emerald-400 to-teal-500",
+      onClick: () => setShowProductModal(true),
+    },
+    // --- Widget Segments ---
+    {
+      title: "Segments",
+      amount: segmentCount.toLocaleString("id-ID"),
+      cents: " Items",
+      change: "Manage",
+      isPositive: true,
+      icon: Layers,
+      gradient: "from-purple-400 to-fuchsia-500",
+      onClick: () => setShowSegmentModal(true),
+    },
+    // --- Widget Stages (NEW) ---
+    {
+      title: "Stages",
+      amount: stageCount.toLocaleString("id-ID"),
+      cents: " Items",
+      change: "Manage",
+      isPositive: true,
+      icon: ListOrdered,
+      gradient: "from-rose-400 to-red-500",
+      onClick: () => setShowStageModal(true),
+    },
+  ];
 
-  /* ====== Chart.js data & options ====== */
+  /* ====== Chart.js data & options (SAMA PERSIS) ====== */
   const dataTop5Branch: ChartData<"bar"> = useMemo(
     () => ({
       labels: TOP5_BRANCH.map((d) => d.label),
@@ -483,13 +532,16 @@ export default function Dashboard() {
       </div>
 
       {/* Stats atas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8">
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <div
               key={i}
-              className="group relative bg-white rounded-3xl p-6 shadow-lg border-2 border-orange-100 hover:shadow-2xl hover:border-orange-300 transition-all duration-300 overflow-hidden transform hover:scale-105 cursor-pointer"
+              onClick={stat.onClick}
+              className={`group relative bg-white rounded-3xl p-6 shadow-lg border-2 border-orange-100 hover:shadow-2xl hover:border-orange-300 transition-all duration-300 overflow-hidden transform hover:scale-105 ${
+                stat.onClick ? "cursor-pointer active:scale-95" : ""
+              }`}
             >
               <div
                 className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
@@ -509,11 +561,11 @@ export default function Dashboard() {
                   {stat.title}
                 </h3>
                 <div className="flex items-baseline mb-3">
-                  <span className="text-2xl font-black text-gray-900">
+                  <span className="text-xl font-black text-gray-900">
                     {stat.amount}
                   </span>
                   {stat.cents && (
-                    <span className="text-2xl font-bold text-gray-300">
+                    <span className="text-xl font-bold text-gray-400 ml-1">
                       {stat.cents}
                     </span>
                   )}
@@ -535,7 +587,9 @@ export default function Dashboard() {
                     </div>
                   )}
                   <span className="text-xs font-medium text-gray-400">
-                    vs last month
+                    {stat.change === "Manage"
+                      ? "Click to edit"
+                      : "vs last month"}
                   </span>
                 </div>
               </div>
@@ -579,7 +633,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Manage & Add Widget Modals (dipertahankan) */}
+      {/* --- MODALS --- */}
+
+      {/* 1. Modal Manage Widgets (bawaan) */}
       {showWidgetModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
@@ -630,6 +686,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* 2. Modal Add Widget (bawaan) */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
@@ -704,6 +761,34 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* 3. MODAL: Product Category CRUD */}
+      <ProductCategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        onUpdateTotal={(total) => setCategoryCount(total)}
+      />
+
+      {/* 4. MODAL: Product CRUD */}
+      <ProductModal
+        isOpen={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        onUpdateTotal={(total) => setProductCount(total)}
+      />
+
+      {/* 5. MODAL: Segment CRUD */}
+      <SegmentModal
+        isOpen={showSegmentModal}
+        onClose={() => setShowSegmentModal(false)}
+        onUpdateTotal={(total) => setSegmentCount(total)}
+      />
+
+      {/* 6. MODAL BARU: Stage CRUD */}
+      <StageModal
+        isOpen={showStageModal}
+        onClose={() => setShowStageModal(false)}
+        onUpdateTotal={(total) => setStageCount(total)}
+      />
     </div>
   );
 }

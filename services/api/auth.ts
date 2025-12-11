@@ -105,7 +105,7 @@ class AuthService extends BaseApiService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!this.getTokenFromStorage();
   }
 }
 

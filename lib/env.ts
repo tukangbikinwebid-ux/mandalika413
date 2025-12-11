@@ -1,7 +1,9 @@
 // Environment variables configuration
 export const env = {
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api-topup.naditechno.id/api/v1/',
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  API_BASE_URL:
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "https://api-psak.naditechno.id/api/v1/",
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
 } as const;
 

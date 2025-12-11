@@ -1,4 +1,5 @@
-import { env } from '@/lib/env';
+import { env } from "@/lib/env";
+import { getSession } from "next-auth/react"; // 1. Import getSession
 
 export interface ApiResponse<T = unknown> {
   code: number;
@@ -24,21 +25,40 @@ class BaseApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     const headers: Record<string, string> = {
+      Accept: "application/json",
       ...(options.headers as Record<string, string>),
     };
 
-    // Only set Content-Type for JSON requests, not for FormData
     if (!(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json';
+      headers["Content-Type"] = "application/json";
     }
 
-    // Get token from localStorage
-    const token = this.getToken();
+    // --- PERBAIKAN UTAMA DISINI ---
+
+    // 1. Coba ambil dari LocalStorage (jika ada)
+    let token = this.getTokenFromStorage();
+
+    // 2. Jika di LocalStorage kosong, coba ambil dari Session NextAuth
+    if (!token && typeof window !== "undefined") {
+      const session = await getSession();
+      token = session?.accessToken || null;
+    }
+
+    // 3. Debugging: Lihat di console browser apa tokennya
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `[API] ${endpoint} | Token:`,
+        token ? "Bearer " + token.substring(0, 10) + "..." : "NULL"
+      );
+    }
+
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
+
+    // -----------------------------
 
     const config: RequestInit = {
       ...options,
@@ -47,13 +67,18 @@ class BaseApiService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
+        // Handle token expired (opsional)
+        if (response.status === 401) {
+          console.error("Unauthorized: Token kosong atau expired.");
+        }
+
         const errorData: ApiError = await response.json().catch(() => ({
           code: response.status,
-          message: 'An error occurred',
+          message: "An error occurred",
         }));
-        throw new Error(errorData.message || 'Request failed');
+        throw new Error(errorData.message || "Request failed");
       }
 
       return await response.json();
@@ -61,48 +86,49 @@ class BaseApiService {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Network error');
+      throw new Error("Network error");
     }
   }
 
-  protected getToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('admin_token');
+  // Rename agar jelas ini hanya cek localStorage
+  protected getTokenFromStorage(): string | null {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("admin_token");
     }
     return null;
   }
 
+  // ... (Method setToken, get, post, dll tetap sama)
   public setToken(token: string | null): void {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       if (token) {
-        localStorage.setItem('admin_token', token);
+        localStorage.setItem("admin_token", token);
       } else {
-        localStorage.removeItem('admin_token');
+        localStorage.removeItem("admin_token");
       }
     }
   }
 
-  // HTTP Methods
   public async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
+    return this.request<T>(endpoint, { method: "GET" });
   }
 
   public async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
-      method: 'POST',
+      method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   public async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
-      method: 'PUT',
+      method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   public async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+    return this.request<T>(endpoint, { method: "DELETE" });
   }
 }
 

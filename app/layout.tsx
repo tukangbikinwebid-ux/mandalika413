@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat, Russo_One } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import ClientAuthGuard from "@/components/client-auth-guards";
 
 const MontserratSans = Montserrat({
   variable: "--font-montserrat",
@@ -30,7 +31,14 @@ export default function RootLayout({
       <body
         className={`${MontserratSans.variable} ${RussoOneMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <ClientAuthGuard
+            excludedRoutes={["/auth", "/auth/login", "/public", "/"]}
+            excludedFetchPrefixes={["/api/auth/", "/auth/"]}
+            loginPath="/auth/login"
+          />
+          {children}
+        </Providers>
       </body>
     </html>
   );
