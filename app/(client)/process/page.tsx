@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { api } from "@/services/api";
 import type { PSAK413Import, CreateImportRequest } from "@/services/api";
-import type { PSAK413Detail } from "@/services/api";
 import {
   Loader2,
   FileSpreadsheet,
@@ -15,8 +14,14 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import Swal from "sweetalert2";
+
+// --- Constants for Local Storage ---
+const LS_KEY_IMPORT_ID = "psak413_current_import_id";
+const LS_KEY_FILENAME = "psak413_current_filename";
 
 // --- Helper Functions ---
 const formatCurrency = (val: number) =>
@@ -30,12 +35,13 @@ const formatPercent = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "percent",
     minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(val / 100);
+    maximumFractionDigits: 2,
+  }).format(val);
 
 const formatDate = (dateInput: string | number | undefined) => {
   if (!dateInput) return "-";
 
+  // Handle Excel Serial Date
   if (typeof dateInput === "number") {
     const date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
     return date.toLocaleDateString("id-ID", {
@@ -45,6 +51,7 @@ const formatDate = (dateInput: string | number | undefined) => {
     });
   }
 
+  // Handle ISO String from Backend
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("id-ID", {
@@ -72,7 +79,7 @@ interface TableRow {
   start_date: string | number;
   maturity_date: string | number;
   psak413_amount: number;
-  status: "Pending" | "Processing" | "Done";
+  status: "Pending" | "Processing" | "Done" | "Error";
 }
 
 export default function ProcessPage() {
@@ -84,7 +91,6 @@ export default function ProcessPage() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [localFileName, setLocalFileName] = useState<string>("");
-  // 1. ADD: State untuk menyimpan objek File yang sebenarnya
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
   // --- States Data ---
@@ -95,19 +101,28 @@ export default function ProcessPage() {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [dataMode, setDataMode] = useState<"preview" | "server">("server");
 
-  // Pagination
+  // Error Report State
+  const [importErrors, setImportErrors] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [totalDetails, setTotalDetails] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Refs
+  // Refs for logic
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pageRef = useRef(1);
 
-  // ... (Fetch Details & Polling Logic tetap sama, di-hide biar ringkas) ...
+  // Sync state page ke ref
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  // --- 1. Fetch Details from Backend (Server Mode) ---
   const fetchDetailsFromServer = useCallback(
-    async (importId: string, pageNum: number) => {
-      setLoadingDetails(true);
+    async (importId: string, pageNum: number, isPolling = false) => {
+      if (!isPolling) setLoadingDetails(true);
+
       try {
         const res = await api.psak413Detail.getAll({
           psak413_import_id: importId,
@@ -118,41 +133,48 @@ export default function ProcessPage() {
         });
 
         if (res.code === 200) {
-          const mapped: TableRow[] = res.data.data.map((d) => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mapped: TableRow[] = res.data.data.map((d: any) => ({
             id: d.id,
             cab: d.cab,
             no_rekening: d.no_rekening,
             nama_nasabah: d.nama_nasabah,
             alamat_nasabah: d.alamat_nasabah,
-            product_code: d.product_code,
+            product_code: d.product_code || d.product_id,
             akad: d.akad,
-            plafond: d.plafond,
-            os_pokok: d.os_pokok,
-            os_margin: d.os_margin,
-            os_total: d.os_total,
-            ead: d.ead,
-            pd: d.pd,
-            lgd: d.lgd,
+            plafond: Number(d.plafond),
+            os_pokok: Number(d.os_pokok),
+            os_margin: Number(d.os_margin),
+            os_total: Number(d.os_total),
+            ead: Number(d.ead),
+            pd: Number(d.pd),
+            lgd: Number(d.lgd),
             start_date: d.start_date,
             maturity_date: d.maturity_date,
-            psak413_amount: d.psak413_amount,
+            psak413_amount: Number(d.psak413_amount),
             status: "Done",
           }));
 
           setTableData(mapped);
           setTotalDetails(res.data.total);
           setTotalPages(res.data.last_page);
+
+          if (!isPolling) {
+            setPage(res.data.current_page);
+          }
+
           setDataMode("server");
         }
       } catch (error) {
         console.error("Failed to fetch details", error);
       } finally {
-        setLoadingDetails(false);
+        if (!isPolling) setLoadingDetails(false);
       }
     },
     []
   );
 
+  // --- 2. Polling Logic ---
   const startPolling = useCallback(
     (importId: string) => {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -164,85 +186,116 @@ export default function ProcessPage() {
             const updatedImport = res.data;
             setCurrentImport(updatedImport);
 
-            const srvProgress = updatedImport.progress;
-            setProgress((prev) => Math.max(prev, srvProgress));
+            const srvProgress = updatedImport.progress || 0;
+            setProgress(srvProgress);
 
-            // Visual update di tabel preview
-            setTableData((prev) => {
-              if (dataMode === "server") return prev;
-              return prev.map((row, idx) => {
-                const thresholdInfo = Math.floor(
-                  (srvProgress / 100) * prev.length
-                );
-                if (idx < thresholdInfo) return { ...row, status: "Done" };
-                if (idx === thresholdInfo)
-                  return { ...row, status: "Processing" };
-                return row;
-              });
-            });
+            if (updatedImport.errors) {
+              setImportErrors(updatedImport.errors);
+            }
 
-            if (updatedImport.finished_at || updatedImport.progress === 100) {
-              if (pollingRef.current) clearInterval(pollingRef.current);
+            const isFinished =
+              !!updatedImport.finished_at || srvProgress === 100;
+
+            if (isFinished) {
+              if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+              }
+
               setRunning(false);
               setProgress(100);
               setShowSuccess(true);
-              fetchDetailsFromServer(importId, 1);
+
+              fetchDetailsFromServer(importId, pageRef.current, false);
+
+              // Clear file inputs UI but KEEP localStorage
+              setLocalFileName(localStorage.getItem(LS_KEY_FILENAME) || "");
+              setFileToUpload(null);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+
+              return;
             }
+
+            // Silent update jika belum selesai
+            fetchDetailsFromServer(importId, pageRef.current, true);
           }
         } catch (error) {
           console.error("Polling error", error);
         }
       }, 2000);
     },
-    [fetchDetailsFromServer, dataMode]
+    [fetchDetailsFromServer]
   );
 
+  // --- 3. INIT: Restore State from LocalStorage on Mount ---
   useEffect(() => {
-    const init = async () => {
-      if (localFileName) return;
+    const restoreState = async () => {
+      const savedId = localStorage.getItem(LS_KEY_IMPORT_ID);
+      const savedName = localStorage.getItem(LS_KEY_FILENAME);
 
-      try {
-        const res = await api.psak413Import.getAll({
-          page: 1,
-          paginate: 1,
-          orderBy: "created_at",
-          order: "desc",
-        });
+      if (savedId) {
+        setLoadingDetails(true);
+        if (savedName) setLocalFileName(savedName);
+        setDataMode("server");
 
-        if (res.code === 200 && res.data.data.length > 0) {
-          const latestData = res.data.data[0];
+        try {
+          // 1. Cek Status Import Terakhir
+          const res = await api.psak413Import.getById(savedId);
+          if (res.code === 200 && res.data) {
+            const data = res.data;
+            setCurrentImport(data);
+            setProgress(data.progress || 0);
+            if (data.errors) setImportErrors(data.errors);
 
-          // Pastikan tidak override jika user sedang pilih file
-          if (!fileToUpload) {
-            setCurrentImport(latestData);
-            setLocalFileName(latestData.filename);
-            if (!latestData.finished_at) {
+            const isFinished = !!data.finished_at || data.progress === 100;
+
+            if (!isFinished) {
+              // Jika belum selesai, lanjutkan proses polling
               setRunning(true);
-              startPolling(latestData.id);
+              startPolling(savedId);
             } else {
-              fetchDetailsFromServer(latestData.id, 1);
+              // Jika sudah selesai, set progress 100 dan fetch table
+              setRunning(false);
+              setProgress(100);
+              fetchDetailsFromServer(savedId, 1, false);
             }
+          } else {
+            // Jika ID tidak valid/hapus di server, bersihkan storage
+            resetAll();
+          }
+        } catch (error) {
+          console.error("Failed to restore state", error);
+          // Jika error 404/500 saat restore, mungkin data sudah hilang di server
+          // Opsional: resetAll() atau biarkan user melihat error
+        } finally {
+          // Loading hanya dimatikan jika TIDAK lanjut polling
+          // Jika lanjut polling, loading di handle oleh logic polling
+          // Tapi disini kita set false untuk case "Finished" agar spinner utama hilang
+          const savedIdCheck = localStorage.getItem(LS_KEY_IMPORT_ID); // Re-check
+          if (savedIdCheck) {
+            // Biarkan fetchDetailsFromServer yang mengatur loadingDetails untuk table
+          } else {
+            setLoadingDetails(false);
           }
         }
-      } catch (e) {
-        console.error(e);
       }
     };
-    init();
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [fetchDetailsFromServer, startPolling, localFileName, fileToUpload]);
 
-  // --- 4. Handle File Select (PREVIEW MODE) ---
+    restoreState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
+  // --- 4. Handle Local File Preview ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLocalFileName(file.name);
-    setFileToUpload(file); // 2. SET STATE FILE
+    setFileToUpload(file);
     setDataMode("preview");
     setLoadingDetails(true);
+    setImportErrors(null);
+    setCurrentImport(null);
 
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -267,8 +320,14 @@ export default function ProcessPage() {
         os_margin: Number(row["MARGIN_SISA"]) || 0,
         os_total: Number(row["TOTAL_OUTSTANDING"]) || 0,
         ead: Number(row["EAD"]) || 0,
-        pd: Number(String(row["PD"]).replace("%", "")) || 0,
-        lgd: Number(String(row["LGD"]).replace("%", "")) || 0,
+        pd:
+          typeof row["PD"] === "string"
+            ? Number(row["PD"].replace("%", "")) / 100
+            : Number(row["PD"]),
+        lgd:
+          typeof row["LGD"] === "string"
+            ? Number(row["LGD"].replace("%", "")) / 100
+            : Number(row["LGD"]),
         start_date: row["START_DATE"] as string | number,
         maturity_date: row["MATURITY_DATE"] as string | number,
         psak413_amount: 0,
@@ -283,32 +342,34 @@ export default function ProcessPage() {
     reader.readAsBinaryString(file);
   };
 
-  // --- 5. Handle Process ---
+  // --- 5. Upload & Trigger Backend Process ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
-
-    // 3. GUNAKAN STATE FILE, BUKAN REF
     const file = fileToUpload;
 
     if (!file) {
-      // Fallback cek ref jika state entah kenapa null (defensive)
       if (!fileInputRef.current?.files?.[0]) return;
     }
 
     setRunning(true);
-    setProgress(5);
-
-    setTableData((prev) => prev.map((p) => ({ ...p, status: "Pending" })));
+    setProgress(0);
+    setTableData([]);
+    setDataMode("server");
+    setImportErrors(null);
 
     try {
-      // Pastikan file dikirim, jika state null coba ambil dari ref
+      const actualFile = file || fileInputRef.current!.files![0];
       const payload: CreateImportRequest = {
-        file: file || fileInputRef.current!.files![0],
+        file: actualFile,
       };
 
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
+        // SIMPAN KE LOCAL STORAGE
+        localStorage.setItem(LS_KEY_IMPORT_ID, String(res.data.id));
+        localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
+
         setCurrentImport(res.data);
         startPolling(res.data.id);
       }
@@ -317,7 +378,7 @@ export default function ProcessPage() {
       Swal.fire({
         icon: "error",
         title: "Gagal",
-        text: "Gagal mengupload file.",
+        text: "Gagal mengupload file ke server.",
         confirmButtonColor: "#f97316",
       });
       setRunning(false);
@@ -325,18 +386,33 @@ export default function ProcessPage() {
     }
   };
 
-  const resetAll = () => {
+  // --- Reset All Logic ---
+  const resetAll = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (pollingRef.current) clearInterval(pollingRef.current);
+
+    // HAPUS DARI LOCAL STORAGE
+    localStorage.removeItem(LS_KEY_IMPORT_ID);
+    localStorage.removeItem(LS_KEY_FILENAME);
+
     setRunning(false);
     setProgress(0);
-    setTableData([]);
+    setHovered(false);
     setShowSuccess(false);
+    setImportErrors(null);
+
+    setTableData([]);
     setLocalFileName("");
-    setFileToUpload(null); // Reset File State
+    setFileToUpload(null);
     setCurrentImport(null);
     setTotalDetails(0);
     setPage(1);
-    setDataMode("server");
+    pageRef.current = 1;
+
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -349,13 +425,16 @@ export default function ProcessPage() {
     setPage(newPage);
 
     if (dataMode === "server" && currentImport?.id) {
-      fetchDetailsFromServer(currentImport.id, newPage);
+      fetchDetailsFromServer(currentImport.id, newPage, false);
     }
   };
 
-  // 4. PERBAIKAN LOGIC BUTTON ENABLE
-  // Gunakan state fileToUpload sebagai penanda bahwa file benar-benar ada di memori React
   const canStart = !running && !!fileToUpload;
+  const hasData = !!currentImport;
+
+  const errorLogs = importErrors
+    ? importErrors.split("\n").filter((line) => line.trim() !== "")
+    : [];
 
   return (
     <div className="min-h-[100dvh] bg-white p-4 md:p-8 font-sans text-slate-800">
@@ -370,12 +449,11 @@ export default function ProcessPage() {
               Kalkulator PSAK 413
             </h1>
             <p className="text-sm text-gray-600">
-              Upload Excel Lengkap &rarr; Hitung CKPN via Backend System
+              Upload Excel Lengkap &rarr; Hitung CKPN
             </p>
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           <div className="flex gap-2 mr-2">
             <button
@@ -418,9 +496,11 @@ export default function ProcessPage() {
                   {localFileName}
                 </span>
               </div>
-              {!running && (
+              {!running && !hasData && (
+                // Tombol X hanya muncul jika belum di-upload (masih preview)
+                // Jika sudah hasData (artinya sudah dari server/localStorage), user harus pakai RESET
                 <button
-                  onClick={resetAll}
+                  onClick={(e) => resetAll(e)}
                   className="p-1 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -429,25 +509,35 @@ export default function ProcessPage() {
             </div>
           )}
 
-          <button
-            onClick={() => setConfirmOpen(true)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            disabled={!canStart}
-            className={[
-              "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2",
-              !canStart
-                ? "bg-gray-300 cursor-not-allowed"
-                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200",
-            ].join(" ")}
-          >
-            {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-            {hovered && !running ? "Jalankan Proses ⚡" : "Mulai Proses ▶"}
-          </button>
+          {hasData && (
+            <button
+              onClick={(e) => resetAll(e)}
+              className="relative px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 shadow-md transition-all flex items-center gap-2"
+            >
+              <RotateCcw className="w-5 h-5" /> Reset
+            </button>
+          )}
+
+          {!hasData && (
+            <button
+              onClick={() => setConfirmOpen(true)}
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              disabled={!canStart}
+              className={[
+                "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2",
+                !canStart
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200",
+              ].join(" ")}
+            >
+              {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+              {hovered && !running ? "Jalankan Proses ⚡" : "Mulai Proses ▶"}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Grid Layouts ... (Sama seperti sebelumnya) */}
       <div className="grid gap-6 lg:grid-cols-4">
         {/* Sidebar Status */}
         <div className="lg:col-span-1 space-y-6">
@@ -456,19 +546,25 @@ export default function ProcessPage() {
               Status Proses
             </h3>
             <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl font-black text-gray-900">
+              <span
+                className={`text-4xl font-black ${
+                  running ? "text-amber-500" : "text-gray-900"
+                }`}
+              >
                 {progress}%
               </span>
               <span className="text-sm font-medium text-gray-500 mb-1.5">
                 Completed
               </span>
             </div>
+
             <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
+
             <div className="mt-6 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Mode</span>
@@ -491,6 +587,25 @@ export default function ProcessPage() {
                       {currentImport.rows}
                     </span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Sukses</span>
+                    <span className="font-bold text-emerald-600">
+                      {currentImport.successful_rows}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Gagal</span>
+                    <span
+                      className={`font-bold ${
+                        currentImport.failed_rows > 0
+                          ? "text-red-600"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {currentImport.failed_rows}
+                    </span>
+                  </div>
+
                   <div className="pt-3 border-t border-gray-100 mt-2">
                     <p className="text-xs text-gray-400 mb-1">
                       Total Amount (PSAK 413)
@@ -501,6 +616,7 @@ export default function ProcessPage() {
                   </div>
                 </>
               )}
+
               {dataMode === "preview" && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Est. Rows</span>
@@ -511,6 +627,28 @@ export default function ProcessPage() {
               )}
             </div>
           </div>
+
+          {/* Error Log Container */}
+          {errorLogs.length > 0 && (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm max-h-[400px] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-3 text-red-700">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="font-bold text-sm">
+                  Log Error ({currentImport?.failed_rows})
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {errorLogs.map((log, idx) => (
+                  <div
+                    key={idx}
+                    className="text-xs bg-white p-2 rounded border border-red-100 text-red-600 font-mono break-words"
+                  >
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -518,7 +656,11 @@ export default function ProcessPage() {
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[75vh]">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-gray-800">Preview Data Detail</h2>
+                <h2 className="font-bold text-gray-800">
+                  {dataMode === "preview"
+                    ? "Preview Data Upload"
+                    : "Hasil Perhitungan PSAK 413"}
+                </h2>
                 <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-bold">
                   {totalDetails} Rows
                 </span>
@@ -551,7 +693,7 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Status
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20">
                       PSAK 413 (Hasil)
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
@@ -562,9 +704,6 @@ export default function ProcessPage() {
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Nama Nasabah
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Alamat
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Produk
@@ -579,9 +718,6 @@ export default function ProcessPage() {
                       Pokok Sisa
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
-                      Margin Sisa
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Total OS
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
@@ -594,9 +730,6 @@ export default function ProcessPage() {
                       LGD
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Start Date
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Maturity
                     </th>
                   </tr>
@@ -605,21 +738,34 @@ export default function ProcessPage() {
                   {loadingDetails ? (
                     <tr>
                       <td
-                        colSpan={17}
+                        colSpan={14}
                         className="px-6 py-32 text-center text-gray-400"
                       >
                         <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
+                        <p className="mt-2 text-xs">Mengambil data...</p>
                       </td>
                     </tr>
                   ) : tableData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={17}
+                        colSpan={14}
                         className="px-6 py-32 text-center text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">
-                          <AlertCircle className="w-10 h-10 text-gray-300" />
-                          <span>Belum ada data</span>
+                          {running ? (
+                            <div className="flex flex-col items-center">
+                              <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-2" />
+                              <span>Sedang memproses...</span>
+                              <span className="text-xs text-gray-400">
+                                Data akan muncul otomatis setelah selesai 100%
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-10 h-10 text-gray-300" />
+                              <span>Belum ada data untuk ditampilkan</span>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -627,7 +773,7 @@ export default function ProcessPage() {
                     tableData.map((row, idx) => (
                       <tr
                         key={row.id || idx}
-                        className="hover:bg-yellow-50 transition-colors"
+                        className="hover:bg-yellow-50 transition-colors animate-in fade-in"
                       >
                         <td className="px-4 py-2 text-center">
                           <span
@@ -636,38 +782,33 @@ export default function ProcessPage() {
                                 ? "bg-emerald-500"
                                 : row.status === "Processing"
                                 ? "bg-amber-400 animate-pulse"
+                                : row.status === "Error"
+                                ? "bg-red-500"
                                 : "bg-gray-300"
                             }`}
                           ></span>
                         </td>
                         <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/50 border-x border-blue-50 text-right sticky left-0 z-10">
-                          {row.status === "Done"
+                          {dataMode === "server"
                             ? formatCurrency(row.psak413_amount)
                             : "-"}
                         </td>
-                        <td className="px-4 py-2">{row.cab}</td>
+                        <td className="px-4 py-2 text-center">{row.cab}</td>
                         <td className="px-4 py-2 font-mono text-gray-500">
                           {row.no_rekening}
                         </td>
-                        <td className="px-4 py-2 font-medium text-gray-900">
+                        <td className="px-4 py-2 font-medium text-gray-900 truncate max-w-[200px]">
                           {row.nama_nasabah}
                         </td>
-                        <td
-                          className="px-4 py-2 truncate max-w-[150px]"
-                          title={row.alamat_nasabah}
-                        >
-                          {row.alamat_nasabah}
+                        <td className="px-4 py-2 truncate max-w-[150px]">
+                          {row.product_code}
                         </td>
-                        <td className="px-4 py-2">{row.product_code}</td>
                         <td className="px-4 py-2">{row.akad}</td>
                         <td className="px-4 py-2 text-right text-gray-500">
                           {formatCurrency(row.plafond)}
                         </td>
                         <td className="px-4 py-2 text-right">
                           {formatCurrency(row.os_pokok)}
-                        </td>
-                        <td className="px-4 py-2 text-right text-gray-500">
-                          {formatCurrency(row.os_margin)}
                         </td>
                         <td className="px-4 py-2 text-right font-medium">
                           {formatCurrency(row.os_total)}
@@ -686,9 +827,6 @@ export default function ProcessPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2 text-gray-500">
-                          {formatDate(row.start_date)}
-                        </td>
-                        <td className="px-4 py-2 text-gray-500">
                           {formatDate(row.maturity_date)}
                         </td>
                       </tr>
@@ -701,7 +839,7 @@ export default function ProcessPage() {
         </div>
       </div>
 
-      {/* Confirmation & Success Modals */}
+      {/* Confirmation Modal */}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100">
@@ -718,7 +856,7 @@ export default function ProcessPage() {
               </button>
               <button
                 onClick={handleConfirmProcess}
-                className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold"
+                className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600"
               >
                 Ya, Proses
               </button>
@@ -727,19 +865,48 @@ export default function ProcessPage() {
         </div>
       )}
 
+      {/* Success Modal */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-in zoom-in-95">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10" />
-            </div>
-            <h2 className="text-2xl font-black mb-2">Selesai!</h2>
-            <p className="text-gray-600 mb-8">Data berhasil diproses.</p>
+            {currentImport && currentImport.failed_rows > 0 ? (
+              <>
+                <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <AlertTriangle className="w-10 h-10" />
+                </div>
+                <h2 className="text-2xl font-black mb-2 text-gray-800">
+                  Selesai dengan Catatan
+                </h2>
+                <p className="text-gray-600 mb-2">
+                  Proses selesai, namun terdapat{" "}
+                  <span className="font-bold text-red-600">
+                    {currentImport.failed_rows} baris
+                  </span>{" "}
+                  gagal diproses.
+                </p>
+                <p className="text-xs text-gray-400 mb-8">
+                  Silakan cek log error di sidebar sebelah kiri.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10" />
+                </div>
+                <h2 className="text-2xl font-black mb-2 text-gray-800">
+                  Selesai!
+                </h2>
+                <p className="text-gray-600 mb-8">
+                  Semua data berhasil diproses dan dihitung.
+                </p>
+              </>
+            )}
+
             <button
               onClick={() => setShowSuccess(false)}
-              className="px-8 py-3 rounded-xl bg-emerald-600 text-white font-bold"
+              className="px-8 py-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black transition-all"
             >
-              Tutup
+              Tutup & Lihat Data
             </button>
           </div>
         </div>
