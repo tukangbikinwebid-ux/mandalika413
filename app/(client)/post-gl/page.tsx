@@ -57,9 +57,6 @@ export default function PostGLPage() {
     setLoading(true);
     try {
       // Kita gunakan psak413DetailService untuk mengambil data movement
-      // Param psak413_import_id dihapus jika ingin mengambil semua movement global
-      // atau tetap dipakai jika ingin filter import tertentu.
-      // Di sini asumsi mengambil data global (semua history)
       const res = await api.psak413Detail.getAll({
         page,
         paginate: PAGE_SIZE,
@@ -96,14 +93,14 @@ export default function PostGLPage() {
   const endIdx = Math.min(page * PAGE_SIZE, totalData);
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 p-6 md:p-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 p-4 md:p-6 lg:p-8">
       {/* Tabs */}
       <div className="mb-6">
-        <div className="inline-flex rounded-2xl border-2 border-orange-200 bg-white p-1 shadow">
+        <div className="flex flex-col sm:flex-row sm:inline-flex rounded-2xl border-2 border-orange-200 bg-white p-1 shadow gap-2 sm:gap-0 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab("tambah")}
             className={[
-              "px-5 py-2.5 rounded-xl text-sm font-bold transition",
+              "px-5 py-2.5 rounded-xl text-sm font-bold transition w-full sm:w-auto flex justify-center",
               activeTab === "tambah"
                 ? "bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow"
                 : "text-orange-700 hover:bg-orange-50",
@@ -118,7 +115,7 @@ export default function PostGLPage() {
           <button
             onClick={() => setActiveTab("riwayat")}
             className={[
-              "px-5 py-2.5 rounded-xl text-sm font-bold transition",
+              "px-5 py-2.5 rounded-xl text-sm font-bold transition w-full sm:w-auto flex justify-center",
               activeTab === "riwayat"
                 ? "bg-gradient-to-r from-orange-500 to-yellow-500 text-white shadow"
                 : "text-orange-700 hover:bg-orange-50",
@@ -134,17 +131,17 @@ export default function PostGLPage() {
 
       {/* Panel: Tambah Posting GL */}
       {activeTab === "tambah" && (
-        <div className="bg-white rounded-3xl p-6 md:p-8 shadow-lg border-2 border-orange-100">
+        <div className="bg-white rounded-3xl p-4 md:p-6 lg:p-8 shadow-lg border-2 border-orange-100">
           {/* Header tabel + actions */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-black text-gray-900">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h2 className="text-xl md:text-2xl font-black text-gray-900">
               Recent ECL Movements
             </h2>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => setShowFilter((p) => !p)}
-                  className="px-4 py-2 bg-orange-50 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-colors flex items-center gap-2 border border-orange-200"
+                  className="w-full sm:w-auto px-4 py-2 bg-orange-50 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-colors flex items-center justify-center sm:justify-start gap-2 border border-orange-200"
                 >
                   <Filter className="w-4 h-4" />
                   All branches
@@ -155,7 +152,7 @@ export default function PostGLPage() {
                   />
                 </button>
                 {showFilter && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border-2 border-orange-200 shadow-2xl overflow-hidden z-10">
+                  <div className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 bg-white rounded-xl border-2 border-orange-200 shadow-2xl overflow-hidden z-20">
                     {["All branches", "HO Only", "Top 5 Branch"].map((opt) => (
                       <button
                         key={opt}
@@ -168,14 +165,14 @@ export default function PostGLPage() {
                   </div>
                 )}
               </div>
-              <button className="px-4 py-2 text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors flex items-center gap-1 hover:bg-orange-50 rounded-xl">
+              <button className="w-full sm:w-auto px-4 py-2 text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors flex items-center justify-center sm:justify-start gap-1 hover:bg-orange-50 rounded-xl">
                 Lihat Semua
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Tabel (full width, support label panjang) */}
+          {/* Tabel (full width, support label panjang, responsive scroll) */}
           <div className="w-full overflow-x-auto rounded-2xl ring-1 ring-orange-100">
             <div className="min-w-[960px]">
               {/* Header grid */}
@@ -240,7 +237,7 @@ export default function PostGLPage() {
                         </span>
                       </div>
                       <div className="col-span-2 flex items-center text-sm font-semibold text-gray-700">
-                        {/* GL Account biasanya belum ada di interface detail, jadi placeholder atau mapping dari produk */}
+                        {/* GL Account placeholder */}
                         GL ??? / Stage {row.stage}
                       </div>
                       <div className="col-span-3 flex items-center text-sm font-semibold text-gray-700">
@@ -254,8 +251,8 @@ export default function PostGLPage() {
           </div>
 
           {/* Pagination */}
-          <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="text-sm text-gray-600">
+          <div className="mt-6 flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-3">
+            <div className="text-sm text-gray-600 text-center lg:text-left">
               Showing{" "}
               <span className="font-semibold text-gray-800">
                 {totalData > 0 ? startIdx : 0}–{endIdx}
@@ -263,7 +260,7 @@ export default function PostGLPage() {
               of <span className="font-semibold">{totalData}</span> entries
             </div>
 
-            <div className="inline-flex items-center gap-1 bg-white rounded-xl border-2 border-orange-200 p-1 shadow-sm">
+            <div className="inline-flex items-center flex-wrap justify-center gap-1 bg-white rounded-xl border-2 border-orange-200 p-1 shadow-sm">
               <button
                 onClick={() => goToPage(page - 1)}
                 disabled={page === 1}
@@ -278,7 +275,6 @@ export default function PostGLPage() {
 
               {/* Simple Page Indicator - Show max 5 pages around current */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                // Logic simpel agar page tetap di tengah jika banyak
                 let p = i + 1;
                 if (totalPages > 5 && page > 3) {
                   p = page - 2 + i;
@@ -323,7 +319,7 @@ export default function PostGLPage() {
 
       {/* Panel: Riwayat Posting (placeholder) */}
       {activeTab === "riwayat" && (
-        <div className="bg-white rounded-3xl p-8 shadow-lg border-2 border-orange-100">
+        <div className="bg-white rounded-3xl p-4 md:p-6 lg:p-8 shadow-lg border-2 border-orange-100">
           <h2 className="text-xl font-black text-gray-900 mb-2">
             Riwayat Posting GL
           </h2>

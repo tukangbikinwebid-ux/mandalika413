@@ -69,6 +69,12 @@ interface TableRow {
   alamat_nasabah: string;
   product_code: string;
   akad: string;
+  // New Fields
+  segment: string | null;
+  stage: number | string;
+  past_due_total: number;
+  past_due_day: number;
+  // Existing Fields
   plafond: number;
   os_pokok: number;
   os_margin: number;
@@ -142,6 +148,12 @@ export default function ProcessPage() {
             alamat_nasabah: d.alamat_nasabah,
             product_code: d.product_code || d.product_id,
             akad: d.akad,
+            // Mapping New Fields
+            segment: d.segment_name,
+            stage: d.stage,
+            past_due_total: Number(d.past_due_total),
+            past_due_day: Number(d.past_due_day),
+            // Existing
             plafond: Number(d.plafond),
             os_pokok: Number(d.os_pokok),
             os_margin: Number(d.os_margin),
@@ -315,6 +327,13 @@ export default function ProcessPage() {
         alamat_nasabah: String(row["ALAMAT_NASABAH"] || ""),
         product_code: String(row["KODE_PRODUK"] || ""),
         akad: String(row["AKAD"] || ""),
+        // Mapping Preview (Try to guess Excel Headers)
+        segment: String(row["SEGMENT"] || row["SEGMEN"] || "-"),
+        stage: row["STAGE"] || row["KOLEKTIBILITAS"] || 1,
+        past_due_total:
+          Number(row["TOTAL_PAST_DUE"] || row["PAST_DUE_TOTAL"]) || 0,
+        past_due_day: Number(row["DAY_PAST_DUE"] || row["DPD"]) || 0,
+        // Existing
         plafond: Number(row["PLAFOND"]) || 0,
         os_pokok: Number(row["POKOK_SISA"]) || 0,
         os_margin: Number(row["MARGIN_SISA"]) || 0,
@@ -454,17 +473,18 @@ export default function ProcessPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <div className="flex gap-2 mr-2">
+        {/* Action Buttons: Stack on mobile, Row on tablet/desktop */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full lg:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={() => handleDownloadTemplate("excel")}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all"
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all whitespace-nowrap"
             >
               <FileSpreadsheet className="w-4 h-4" /> Template .xlsx
             </button>
             <button
               onClick={() => handleDownloadTemplate("csv")}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-bold transition-all"
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-bold transition-all whitespace-nowrap"
             >
               <FileType className="w-4 h-4" /> Template .csv
             </button>
@@ -482,26 +502,24 @@ export default function ProcessPage() {
           {!localFileName ? (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm"
+              className="flex justify-center items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm w-full sm:w-auto"
             >
               <UploadCloud className="w-5 h-5" /> <span>Pilih File</span>
             </button>
           ) : (
-            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
-              <div className="flex flex-col">
+            <div className="flex items-center justify-between sm:justify-start gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200 w-full sm:w-auto">
+              <div className="flex flex-col overflow-hidden">
                 <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
                   File Terpilih
                 </span>
-                <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px]">
+                <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px] sm:max-w-[200px]">
                   {localFileName}
                 </span>
               </div>
               {!running && !hasData && (
-                // Tombol X hanya muncul jika belum di-upload (masih preview)
-                // Jika sudah hasData (artinya sudah dari server/localStorage), user harus pakai RESET
                 <button
                   onClick={(e) => resetAll(e)}
-                  className="p-1 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors"
+                  className="p-1 flex-shrink-0 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -512,7 +530,7 @@ export default function ProcessPage() {
           {hasData && (
             <button
               onClick={(e) => resetAll(e)}
-              className="relative px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 shadow-md transition-all flex items-center gap-2"
+              className="relative justify-center px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 shadow-md transition-all flex items-center gap-2 w-full sm:w-auto"
             >
               <RotateCcw className="w-5 h-5" /> Reset
             </button>
@@ -525,7 +543,7 @@ export default function ProcessPage() {
               onMouseLeave={() => setHovered(false)}
               disabled={!canStart}
               className={[
-                "relative px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2",
+                "relative justify-center px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 w-full sm:w-auto",
                 !canStart
                   ? "bg-gray-300 cursor-not-allowed"
                   : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200",
@@ -538,9 +556,9 @@ export default function ProcessPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        {/* Sidebar Status */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-4">
+        {/* Sidebar Status: Full width on mobile, 1 col on desktop */}
+        <div className="col-span-1 space-y-4 md:space-y-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
               Status Proses
@@ -651,21 +669,21 @@ export default function ProcessPage() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="lg:col-span-3">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[75vh]">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+        {/* Table: Full width on mobile, 3 cols on desktop */}
+        <div className="col-span-1 lg:col-span-3">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[500px] lg:h-[75vh]">
+            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-gray-50/50 rounded-t-2xl">
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-gray-800">
+                <h2 className="font-bold text-gray-800 text-sm sm:text-base">
                   {dataMode === "preview"
                     ? "Preview Data Upload"
                     : "Hasil Perhitungan PSAK 413"}
                 </h2>
-                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                <span className="bg-gray-200 text-gray-600 text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold">
                   {totalDetails} Rows
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1 || loadingDetails}
@@ -711,6 +729,14 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Akad
                     </th>
+                    {/* New Columns Header */}
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Segment
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
+                      Stage
+                    </th>
+                    {/* End New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Plafond
                     </th>
@@ -720,6 +746,14 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Total OS
                     </th>
+                    {/* New Columns Header */}
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Total Past Due
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                      Day Past Due
+                    </th>
+                    {/* End New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       EAD
                     </th>
@@ -738,7 +772,7 @@ export default function ProcessPage() {
                   {loadingDetails ? (
                     <tr>
                       <td
-                        colSpan={14}
+                        colSpan={18}
                         className="px-6 py-32 text-center text-gray-400"
                       >
                         <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
@@ -748,7 +782,7 @@ export default function ProcessPage() {
                   ) : tableData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={14}
+                        colSpan={18}
                         className="px-6 py-32 text-center text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -804,6 +838,16 @@ export default function ProcessPage() {
                           {row.product_code}
                         </td>
                         <td className="px-4 py-2">{row.akad}</td>
+                        {/* New Columns Data */}
+                        <td className="px-4 py-2">
+                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">
+                            {row.segment || "-"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-center font-bold">
+                          {row.stage}
+                        </td>
+                        {/* End New Columns Data */}
                         <td className="px-4 py-2 text-right text-gray-500">
                           {formatCurrency(row.plafond)}
                         </td>
@@ -813,6 +857,14 @@ export default function ProcessPage() {
                         <td className="px-4 py-2 text-right font-medium">
                           {formatCurrency(row.os_total)}
                         </td>
+                        {/* New Columns Data */}
+                        <td className="px-4 py-2 text-right text-red-600">
+                          {formatCurrency(row.past_due_total)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono">
+                          {row.past_due_day}
+                        </td>
+                        {/* End New Columns Data */}
                         <td className="px-4 py-2 text-right font-bold text-gray-800">
                           {formatCurrency(row.ead)}
                         </td>
