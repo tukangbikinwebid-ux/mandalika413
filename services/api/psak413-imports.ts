@@ -72,10 +72,12 @@ class PSAK413ImportService extends BaseApiService {
 
   getTemplateExcelUrl(): string {
     return "https://api-psak.naditechno.id/template-psak413.xlsx";
+    // return "http://127.0.0.1:8000/template-psak413.xlsx";
   }
 
   getTemplateCsvUrl(): string {
     return "https://api-psak.naditechno.id/template-psak413.csv";
+    // return "http://127.0.0.1:8000/template-psak413.csv";
   }
 
   downloadTemplate(type: "excel" | "csv"): void {

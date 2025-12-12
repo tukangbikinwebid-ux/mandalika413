@@ -4,6 +4,7 @@ export const env = {
   API_BASE_URL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "https://api-psak.naditechno.id/api/v1/",
+    // "http://127.0.0.1:8000/api/v1/",
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
 } as const;
 
