@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react"; // Added useCallback
+import { useEffect, useRef, useState, useCallback } from "react";
+import * as XLSX from "xlsx";
 import { api } from "@/services/api";
-import type {
-  PSAK413Import,
-  CreateImportRequest,
-} from "@/services/api";
+import type { PSAK413Import, CreateImportRequest } from "@/services/api";
 import type { PSAK413Detail } from "@/services/api";
 import {
   Loader2,
@@ -20,7 +18,7 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 
-// ... (Helper Functions stay the same) ...
+// --- Helper Functions ---
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -35,9 +33,19 @@ const formatPercent = (val: number) =>
     maximumFractionDigits: 4,
   }).format(val / 100);
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
+const formatDate = (dateInput: string | number | undefined) => {
+  if (!dateInput) return "-";
+
+  if (typeof dateInput === "number") {
+    const date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const date = new Date(dateInput);
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("id-ID", {
     day: "2-digit",
@@ -46,6 +54,27 @@ const formatDate = (dateString: string) => {
   });
 };
 
+interface TableRow {
+  id: number | string;
+  cab: string;
+  no_rekening: string;
+  nama_nasabah: string;
+  alamat_nasabah: string;
+  product_code: string;
+  akad: string;
+  plafond: number;
+  os_pokok: number;
+  os_margin: number;
+  os_total: number;
+  ead: number;
+  pd: number;
+  lgd: number;
+  start_date: string | number;
+  maturity_date: string | number;
+  psak413_amount: number;
+  status: "Pending" | "Processing" | "Done";
+}
+
 export default function ProcessPage() {
   // --- States UI ---
   const [hovered, setHovered] = useState(false);
@@ -53,14 +82,18 @@ export default function ProcessPage() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+
   const [localFileName, setLocalFileName] = useState<string>("");
+  // 1. ADD: State untuk menyimpan objek File yang sebenarnya
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
   // --- States Data ---
   const [currentImport, setCurrentImport] = useState<PSAK413Import | null>(
     null
   );
-  const [details, setDetails] = useState<PSAK413Detail[]>([]);
+  const [tableData, setTableData] = useState<TableRow[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [dataMode, setDataMode] = useState<"preview" | "server">("server");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -71,10 +104,8 @@ export default function ProcessPage() {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- API Fetchers (Wrapped in useCallback) ---
-
-  // 1. Fetch Details (List Data Table)
-  const fetchDetails = useCallback(
+  // ... (Fetch Details & Polling Logic tetap sama, di-hide biar ringkas) ...
+  const fetchDetailsFromServer = useCallback(
     async (importId: string, pageNum: number) => {
       setLoadingDetails(true);
       try {
@@ -87,10 +118,31 @@ export default function ProcessPage() {
         });
 
         if (res.code === 200) {
-          setDetails(res.data.data);
+          const mapped: TableRow[] = res.data.data.map((d) => ({
+            id: d.id,
+            cab: d.cab,
+            no_rekening: d.no_rekening,
+            nama_nasabah: d.nama_nasabah,
+            alamat_nasabah: d.alamat_nasabah,
+            product_code: d.product_code,
+            akad: d.akad,
+            plafond: d.plafond,
+            os_pokok: d.os_pokok,
+            os_margin: d.os_margin,
+            os_total: d.os_total,
+            ead: d.ead,
+            pd: d.pd,
+            lgd: d.lgd,
+            start_date: d.start_date,
+            maturity_date: d.maturity_date,
+            psak413_amount: d.psak413_amount,
+            status: "Done",
+          }));
+
+          setTableData(mapped);
           setTotalDetails(res.data.total);
           setTotalPages(res.data.last_page);
-          // Note: Don't setPage here if it causes loops, trust the arg
+          setDataMode("server");
         }
       } catch (error) {
         console.error("Failed to fetch details", error);
@@ -101,40 +153,8 @@ export default function ProcessPage() {
     []
   );
 
-  // 2. Fetch Latest Import (Header Info)
-  const fetchLatestImport = useCallback(async () => {
-    try {
-      const res = await api.psak413Import.getAll({
-        page: 1,
-        paginate: 1,
-        orderBy: "created_at",
-        order: "desc",
-      });
-
-      if (res.code === 200 && res.data.data.length > 0) {
-        const latestData = res.data.data[0];
-        setCurrentImport(latestData);
-        setLocalFileName(latestData.filename);
-
-        // Logic: Check status
-        if (!latestData.finished_at) {
-          // Masih processing -> Start Polling
-          setRunning(true);
-          startPolling(latestData.id);
-        } else {
-          // Selesai -> Load details
-          fetchDetails(latestData.id, 1);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load history", error);
-    }
-  }, [fetchDetails]); // Dependency on fetchDetails
-
-  // --- Polling Logic ---
   const startPolling = useCallback(
     (importId: string) => {
-      // Clear existing interval first
       if (pollingRef.current) clearInterval(pollingRef.current);
 
       pollingRef.current = setInterval(async () => {
@@ -143,69 +163,154 @@ export default function ProcessPage() {
           if (res.code === 200 && res.data) {
             const updatedImport = res.data;
             setCurrentImport(updatedImport);
-            setProgress(updatedImport.progress);
 
-            // Stop condition
+            const srvProgress = updatedImport.progress;
+            setProgress((prev) => Math.max(prev, srvProgress));
+
+            // Visual update di tabel preview
+            setTableData((prev) => {
+              if (dataMode === "server") return prev;
+              return prev.map((row, idx) => {
+                const thresholdInfo = Math.floor(
+                  (srvProgress / 100) * prev.length
+                );
+                if (idx < thresholdInfo) return { ...row, status: "Done" };
+                if (idx === thresholdInfo)
+                  return { ...row, status: "Processing" };
+                return row;
+              });
+            });
+
             if (updatedImport.finished_at || updatedImport.progress === 100) {
               if (pollingRef.current) clearInterval(pollingRef.current);
               setRunning(false);
+              setProgress(100);
               setShowSuccess(true);
-              fetchDetails(importId, 1); // Refresh data final
+              fetchDetailsFromServer(importId, 1);
             }
           }
         } catch (error) {
           console.error("Polling error", error);
         }
-      }, 2000); // Poll every 2s
+      }, 2000);
     },
-    [fetchDetails]
+    [fetchDetailsFromServer, dataMode]
   );
 
-  // --- Effects ---
-
-  // 1. Initial Load
   useEffect(() => {
-    fetchLatestImport();
+    const init = async () => {
+      if (localFileName) return;
 
-    // Cleanup on unmount
+      try {
+        const res = await api.psak413Import.getAll({
+          page: 1,
+          paginate: 1,
+          orderBy: "created_at",
+          order: "desc",
+        });
+
+        if (res.code === 200 && res.data.data.length > 0) {
+          const latestData = res.data.data[0];
+
+          // Pastikan tidak override jika user sedang pilih file
+          if (!fileToUpload) {
+            setCurrentImport(latestData);
+            setLocalFileName(latestData.filename);
+            if (!latestData.finished_at) {
+              setRunning(true);
+              startPolling(latestData.id);
+            } else {
+              fetchDetailsFromServer(latestData.id, 1);
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    init();
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [fetchLatestImport]);
+  }, [fetchDetailsFromServer, startPolling, localFileName, fileToUpload]);
 
-  // 2. Pagination Effect (Optional: trigger fetch when page changes)
-  // Ini cara yang lebih "React" daripada manggil fetch di handler onClick
-  useEffect(() => {
-    if (currentImport?.id && !running) {
-      fetchDetails(currentImport.id, page);
-    }
-  }, [page, currentImport?.id, running, fetchDetails]);
-
-  // --- Event Handlers ---
-
+  // --- 4. Handle File Select (PREVIEW MODE) ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setLocalFileName(file.name);
+    setFileToUpload(file); // 2. SET STATE FILE
+    setDataMode("preview");
+    setLoadingDetails(true);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: "binary" });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawData = XLSX.utils.sheet_to_json<any>(ws);
+
+      const mappedData: TableRow[] = rawData.slice(0, 50).map((row, idx) => ({
+        id: idx,
+        cab: String(row["KODE_CABANG"] || ""),
+        no_rekening: String(row["NO_REKENING"] || ""),
+        nama_nasabah: String(row["NAMA_NASABAH"] || ""),
+        alamat_nasabah: String(row["ALAMAT_NASABAH"] || ""),
+        product_code: String(row["KODE_PRODUK"] || ""),
+        akad: String(row["AKAD"] || ""),
+        plafond: Number(row["PLAFOND"]) || 0,
+        os_pokok: Number(row["POKOK_SISA"]) || 0,
+        os_margin: Number(row["MARGIN_SISA"]) || 0,
+        os_total: Number(row["TOTAL_OUTSTANDING"]) || 0,
+        ead: Number(row["EAD"]) || 0,
+        pd: Number(String(row["PD"]).replace("%", "")) || 0,
+        lgd: Number(String(row["LGD"]).replace("%", "")) || 0,
+        start_date: row["START_DATE"] as string | number,
+        maturity_date: row["MATURITY_DATE"] as string | number,
+        psak413_amount: 0,
+        status: "Pending",
+      }));
+
+      setTableData(mappedData);
+      setTotalDetails(rawData.length);
+      setTotalPages(Math.ceil(rawData.length / 10));
+      setLoadingDetails(false);
+    };
+    reader.readAsBinaryString(file);
   };
 
+  // --- 5. Handle Process ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
+
+    // 3. GUNAKAN STATE FILE, BUKAN REF
+    const file = fileToUpload;
+
+    if (!file) {
+      // Fallback cek ref jika state entah kenapa null (defensive)
+      if (!fileInputRef.current?.files?.[0]) return;
+    }
 
     setRunning(true);
-    setProgress(0);
+    setProgress(5);
+
+    setTableData((prev) => prev.map((p) => ({ ...p, status: "Pending" })));
 
     try {
-      const payload: CreateImportRequest = { file };
+      // Pastikan file dikirim, jika state null coba ambil dari ref
+      const payload: CreateImportRequest = {
+        file: file || fileInputRef.current!.files![0],
+      };
+
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
         setCurrentImport(res.data);
         startPolling(res.data.id);
-        // Reset pagination to 1 for new upload
-        setPage(1);
       }
     } catch (error) {
       console.error("Upload failed", error);
@@ -224,12 +329,14 @@ export default function ProcessPage() {
     if (pollingRef.current) clearInterval(pollingRef.current);
     setRunning(false);
     setProgress(0);
-    setDetails([]);
+    setTableData([]);
     setShowSuccess(false);
     setLocalFileName("");
+    setFileToUpload(null); // Reset File State
     setCurrentImport(null);
     setTotalDetails(0);
     setPage(1);
+    setDataMode("server");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -237,32 +344,24 @@ export default function ProcessPage() {
     api.psak413Import.downloadTemplate(type);
   };
 
-  // Pagination UI Handlers (Hanya update state page, useEffect yang fetch data)
-  const handleNextPage = () => {
-    if (page < totalPages) setPage((p) => p + 1);
-  };
-  const handlePrevPage = () => {
-    if (page > 1) setPage((p) => p - 1);
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setPage(newPage);
+
+    if (dataMode === "server" && currentImport?.id) {
+      fetchDetailsFromServer(currentImport.id, newPage);
+    }
   };
 
-  const hasData = !!currentImport;
-  const canStart =
-    !running && !!localFileName && fileInputRef.current?.files?.length === 1;
+  // 4. PERBAIKAN LOGIC BUTTON ENABLE
+  // Gunakan state fileToUpload sebagai penanda bahwa file benar-benar ada di memori React
+  const canStart = !running && !!fileToUpload;
 
-  // --- Render (Sama seperti sebelumnya) ---
   return (
     <div className="min-h-[100dvh] bg-white p-4 md:p-8 font-sans text-slate-800">
-      {/* Header & Upload UI ... (Copy paste UI Anda yang sudah bagus) */}
-
-      {/* Bagian UI di bawah ini SAMA PERSIS dengan kode sebelumnya, 
-          hanya pastikan button pagination memanggil handleNextPage/handlePrevPage
-          yang sekarang hanya mengubah state 'page' */}
-
-      {/* ... (Header) ... */}
-
+      {/* Header */}
       <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
-          {/* ... Logo & Title ... */}
           <div className="grid h-16 w-16 place-content-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-3xl shadow-lg shadow-yellow-200">
             📊
           </div>
@@ -276,8 +375,8 @@ export default function ProcessPage() {
           </div>
         </div>
 
+        {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          {/* ... Buttons Template & Upload ... */}
           <div className="flex gap-2 mr-2">
             <button
               onClick={() => handleDownloadTemplate("excel")}
@@ -348,8 +447,9 @@ export default function ProcessPage() {
         </div>
       </div>
 
+      {/* Grid Layouts ... (Sama seperti sebelumnya) */}
       <div className="grid gap-6 lg:grid-cols-4">
-        {/* ... Sidebar Status ... */}
+        {/* Sidebar Status */}
         <div className="lg:col-span-1 space-y-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
@@ -371,31 +471,24 @@ export default function ProcessPage() {
             </div>
             <div className="mt-6 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Status</span>
+                <span className="text-gray-500">Mode</span>
                 <span
-                  className={`font-bold ${
-                    running
+                  className={`font-bold uppercase ${
+                    dataMode === "preview"
                       ? "text-amber-500"
-                      : hasData
-                      ? "text-emerald-600"
-                      : "text-gray-400"
+                      : "text-emerald-600"
                   }`}
                 >
-                  {running ? "Processing..." : hasData ? "Finished" : "Idle"}
+                  {dataMode}
                 </span>
               </div>
-              {hasData && (
+
+              {dataMode === "server" && currentImport && (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total Rows</span>
                     <span className="font-bold text-gray-900">
-                      {currentImport?.rows || "-"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Success</span>
-                    <span className="font-bold text-emerald-600">
-                      {currentImport?.successful_rows || "-"}
+                      {currentImport.rows}
                     </span>
                   </div>
                   <div className="pt-3 border-t border-gray-100 mt-2">
@@ -403,23 +496,24 @@ export default function ProcessPage() {
                       Total Amount (PSAK 413)
                     </p>
                     <p className="text-lg font-black text-blue-700 truncate">
-                      {formatCurrency(currentImport?.total_psak413_amount || 0)}
+                      {formatCurrency(currentImport.total_psak413_amount || 0)}
                     </p>
                   </div>
                 </>
               )}
-            </div>
-            <div className="mt-4 text-xs text-gray-500 text-center bg-gray-50 p-3 rounded-lg border border-gray-100 italic">
-              {running
-                ? "Mengupload & Memproses data..."
-                : hasData
-                ? `Data dari ${formatDate(currentImport?.created_at || "")}`
-                : "Silakan upload file Excel/CSV."}
+              {dataMode === "preview" && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Est. Rows</span>
+                  <span className="font-bold text-gray-900">
+                    {totalDetails}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ... Table Section ... */}
+        {/* Table */}
         <div className="lg:col-span-3">
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[75vh]">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
@@ -431,9 +525,9 @@ export default function ProcessPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePrevPage}
+                  onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1 || loadingDetails}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -441,16 +535,15 @@ export default function ProcessPage() {
                   Page {page} / {totalPages || 1}
                 </span>
                 <button
-                  onClick={handleNextPage}
+                  onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages || loadingDetails}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Table Content */}
             <div className="flex-1 overflow-auto w-full relative">
               <table className="min-w-max text-xs text-left text-gray-600">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-100 font-bold sticky top-0 z-10 shadow-sm">
@@ -459,7 +552,7 @@ export default function ProcessPage() {
                       Status
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                      PSAK 413
+                      PSAK 413 (Hasil)
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Kode Cab
@@ -470,7 +563,6 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Nama Nasabah
                     </th>
-                    {/* ... th lainnya ... */}
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Alamat
                     </th>
@@ -516,37 +608,42 @@ export default function ProcessPage() {
                         colSpan={17}
                         className="px-6 py-32 text-center text-gray-400"
                       >
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                          <span className="text-sm font-medium">
-                            Mengambil data...
-                          </span>
-                        </div>
+                        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
                       </td>
                     </tr>
-                  ) : details.length === 0 ? (
+                  ) : tableData.length === 0 ? (
                     <tr>
                       <td
                         colSpan={17}
                         className="px-6 py-32 text-center text-gray-400"
                       >
-                        <div className="flex flex-col items-center gap-3 opacity-60">
+                        <div className="flex flex-col items-center gap-2">
                           <AlertCircle className="w-10 h-10 text-gray-300" />
-                          <span>Belum ada data untuk ditampilkan</span>
+                          <span>Belum ada data</span>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    details.map((row) => (
+                    tableData.map((row, idx) => (
                       <tr
-                        key={row.id}
-                        className="hover:bg-yellow-50 transition-colors group"
+                        key={row.id || idx}
+                        className="hover:bg-yellow-50 transition-colors"
                       >
                         <td className="px-4 py-2 text-center">
-                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
+                          <span
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${
+                              row.status === "Done"
+                                ? "bg-emerald-500"
+                                : row.status === "Processing"
+                                ? "bg-amber-400 animate-pulse"
+                                : "bg-gray-300"
+                            }`}
+                          ></span>
                         </td>
-                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/50 group-hover:bg-blue-100/50 border-x border-blue-50 text-right sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                          {formatCurrency(row.psak413_amount)}
+                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/50 border-x border-blue-50 text-right sticky left-0 z-10">
+                          {row.status === "Done"
+                            ? formatCurrency(row.psak413_amount)
+                            : "-"}
                         </td>
                         <td className="px-4 py-2">{row.cab}</td>
                         <td className="px-4 py-2 font-mono text-gray-500">
@@ -555,7 +652,6 @@ export default function ProcessPage() {
                         <td className="px-4 py-2 font-medium text-gray-900">
                           {row.nama_nasabah}
                         </td>
-                        {/* ... td lainnya ... */}
                         <td
                           className="px-4 py-2 truncate max-w-[150px]"
                           title={row.alamat_nasabah}
@@ -605,28 +701,24 @@ export default function ProcessPage() {
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation & Success Modals */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          {/* ... Modal Confirm ... */}
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 transform transition-all scale-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Konfirmasi Proses
-            </h3>
-            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Anda akan mengupload file <b>{localFileName}</b>. <br />
-              Sistem akan menghitung ulang CKPN berdasarkan parameter terbaru.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100">
+            <h3 className="text-lg font-bold">Konfirmasi</h3>
+            <p className="text-sm text-gray-600 my-4">
+              Upload dan proses file <b>{localFileName}</b>?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 rounded-xl border font-bold text-gray-600"
               >
                 Batal
               </button>
               <button
                 onClick={handleConfirmProcess}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold hover:shadow-lg hover:shadow-orange-200 transition-all transform hover:-translate-y-0.5"
+                className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold"
               >
                 Ya, Proses
               </button>
@@ -635,29 +727,20 @@ export default function ProcessPage() {
         </div>
       )}
 
-      {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          {/* ... Modal Success ... */}
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-in zoom-in-95 duration-300">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-in zoom-in-95">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-black text-gray-900 mb-2">
-              Berhasil!
-            </h2>
-            <p className="text-gray-600 mb-8">
-              File telah berhasil diupload dan diproses. Data hasil perhitungan
-              dapat dilihat pada tabel.
-            </p>
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowSuccess(false)}
-                className="px-8 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all transform hover:-translate-y-1"
-              >
-                Lihat Hasil
-              </button>
-            </div>
+            <h2 className="text-2xl font-black mb-2">Selesai!</h2>
+            <p className="text-gray-600 mb-8">Data berhasil diproses.</p>
+            <button
+              onClick={() => setShowSuccess(false)}
+              className="px-8 py-3 rounded-xl bg-emerald-600 text-white font-bold"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}
