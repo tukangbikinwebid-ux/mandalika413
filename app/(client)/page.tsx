@@ -8,9 +8,7 @@ import {
   Calendar,
   Grid3x3,
   Plus,
-  ChevronDown,
   X,
-  Clock,
   DollarSign,
   Box,
   Package,
@@ -43,6 +41,7 @@ import type {
   EclPerStageData,
   EclPerSegmentData,
   EclPerProductData,
+  TotalEclPerBranch,
 } from "@/services/api";
 
 ChartJS.register(
@@ -55,11 +54,21 @@ ChartJS.register(
   Title
 );
 
+// Formatter standar untuk tampilan ringkas di Axis/Card
 const rupiah = (n: number): string =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
+  }).format(n);
+
+// Formatter presisi untuk Tooltip (Menampilkan desimal sesuai API)
+const rupiahPrecise = (n: number): string =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   }).format(n);
 
 // Helper untuk format tanggal default (YYYY-MM-DD)
@@ -100,10 +109,9 @@ export default function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   // --- DATE FILTER STATE (DYNAMIC) ---
-  // Default: Dari 2 tahun lalu sampai hari ini (atau sesuaikan kebutuhan bisnis)
   const today = new Date();
   const pastDate = new Date();
-  pastDate.setFullYear(today.getFullYear() - 2); // Default range 2 tahun
+  pastDate.setFullYear(today.getFullYear() - 2);
 
   const [dateRange, setDateRange] = useState({
     from: formatDateInput(pastDate),
@@ -132,23 +140,14 @@ export default function Dashboard() {
   const [eclByStage, setEclByStage] = useState<EclPerStageData[]>([]);
   const [eclBySegment, setEclBySegment] = useState<EclPerSegmentData[]>([]);
   const [eclByProduct, setEclByProduct] = useState<EclPerProductData[]>([]);
-
-  // Dummy Branch Data (Since API not provided for this specific chart)
-  const [eclByBranch] = useState([
-    {
-      label: "010 – CABANG UTAMA 010",
-      value: 47_804_130_613,
-      color: "#7CB5FF",
-    },
-  ]);
+  const [eclByBranch, setEclByBranch] = useState<TotalEclPerBranch[]>([]);
 
   // --- FETCH DATA ---
   useEffect(() => {
     const loadDashboardData = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch Counts (Paginate 1 is enough to get total)
-        // Count data usually independent of date range (master data)
+        // 1. Fetch Counts
         const [resCat, resProd, resSeg, resStage] = await Promise.all([
           api.productCategory.getAll({ paginate: 1 }),
           api.product.getAll({ paginate: 1 }),
@@ -163,24 +162,35 @@ export default function Dashboard() {
           stages: resStage.code === 200 ? resStage.data.total : 0,
         });
 
-        // 2. Fetch Dashboard Charts (DYNAMIC DATE PARAMS)
+        // 2. Fetch Dashboard Charts
         const dateParams = {
           from_date: dateRange.from,
           to_date: dateRange.to,
         };
 
-        const [resTotalEcl, resEclStage, resEclSegment, resEclProduct] =
-          await Promise.all([
-            api.dashboard.getTotalEcl(dateParams),
-            api.dashboard.getEclPerStage(dateParams),
-            api.dashboard.getEclPerSegment(dateParams),
-            api.dashboard.getEclPerProduct(dateParams),
-          ]);
+        const [
+          resTotalEcl,
+          resEclStage,
+          resEclSegment,
+          resEclProduct,
+          resEclBranch,
+        ] = await Promise.all([
+          api.dashboard.getTotalEcl(dateParams),
+          api.dashboard.getEclPerStage(dateParams),
+          api.dashboard.getEclPerSegment(dateParams),
+          api.dashboard.getEclPerProduct(dateParams),
+          api.dashboard.getEclPerBranch(dateParams),
+        ]);
 
         if (resTotalEcl.code === 200) setTotalEcl(resTotalEcl.data);
         if (resEclStage.code === 200) setEclByStage(resEclStage.data);
         if (resEclSegment.code === 200) setEclBySegment(resEclSegment.data);
         if (resEclProduct.code === 200) setEclByProduct(resEclProduct.data);
+
+        // Simpan data Branch apa adanya dari API
+        if (resEclBranch.code === 200) {
+          setEclByBranch(resEclBranch.data);
+        }
       } catch (error) {
         console.error("Dashboard data fetch failed:", error);
       } finally {
@@ -189,7 +199,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-  }, [dateRange]); // Refetch when dateRange changes
+  }, [dateRange]);
 
   /* ======= Stats List Configuration ======= */
   const stats = [
@@ -197,7 +207,7 @@ export default function Dashboard() {
       title: "Total ECL (Provision)",
       amount: isLoading ? "Loading..." : rupiah(totalEcl),
       cents: "",
-      change: "+1.9%", // Dummy trend
+      change: "+1.9%",
       isPositive: true,
       icon: DollarSign,
       gradient: "from-yellow-400 to-orange-500",
@@ -247,16 +257,18 @@ export default function Dashboard() {
 
   /* ====== Chart Data Preparation ====== */
 
-  // 1. Chart Branch (Dummy data)
-  const dataTop5Branch: ChartData<"bar"> = useMemo(
+  // 1. Chart Branch (Real Data - Apa Adanya)
+  const dataBranch: ChartData<"bar"> = useMemo(
     () => ({
-      labels: eclByBranch.map((d) => d.label),
+      // Menggunakan key "cab" langsung dari API
+      labels: eclByBranch.map((d) => `Cab ${d.cab}`),
       datasets: [
         {
           label: "ECL Amount",
-          data: eclByBranch.map((d) => d.value),
-          backgroundColor: eclByBranch.map((d) => d.color),
-          borderRadius: 10,
+          // Parsing string float "6570738801353.5800" menjadi number
+          data: eclByBranch.map((d) => parseFloat(d.total_ecl)),
+          backgroundColor: "#7CB5FF",
+          borderRadius: 8,
           borderSkipped: false,
         },
       ],
@@ -264,7 +276,7 @@ export default function Dashboard() {
     [eclByBranch]
   );
 
-  // 2. Chart Stage (Real Data)
+  // 2. Chart Stage
   const dataStage: ChartData<"doughnut"> = useMemo(
     () => ({
       labels: eclByStage.map((d) => `Stage ${d.stage}`),
@@ -280,7 +292,7 @@ export default function Dashboard() {
     [eclByStage]
   );
 
-  // 3. Chart Segment (Real Data)
+  // 3. Chart Segment
   const dataSegment: ChartData<"bar"> = useMemo(
     () => ({
       labels: eclBySegment.map((d) => d.segment),
@@ -297,8 +309,8 @@ export default function Dashboard() {
     [eclBySegment]
   );
 
-  // 4. Chart Product (Real Data)
-  const dataTop5Product: ChartData<"bar"> = useMemo(
+  // 4. Chart Product
+  const dataProduct: ChartData<"bar"> = useMemo(
     () => ({
       labels: eclByProduct.map((d) => d.product),
       datasets: [
@@ -322,8 +334,8 @@ export default function Dashboard() {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (c) =>
-            `${c.dataset.label ?? ""}: ${rupiah(Number(c.parsed.y))}`,
+          // Menggunakan rupiahPrecise untuk tooltip agar angka desimal terlihat
+          label: (c) => `Total: ${rupiahPrecise(Number(c.raw))}`,
         },
       },
     },
@@ -355,7 +367,8 @@ export default function Dashboard() {
     },
   };
 
-  const optionsTop5Branch: ChartOptions<"bar"> = {
+  // Options khusus untuk Branch agar label Y-axis tidak terpotong
+  const optionsBranch: ChartOptions<"bar"> = {
     ...commonBarOptions,
     indexAxis: "y",
     scales: {
@@ -376,6 +389,16 @@ export default function Dashboard() {
         },
       },
     },
+    plugins: {
+      ...commonBarOptions.plugins,
+      tooltip: {
+        callbacks: {
+          // Tampilkan RAW value jika hover, agar sesuai 100% dengan API
+          label: (c) =>
+            `Rp ${new Intl.NumberFormat("id-ID").format(Number(c.raw))}`,
+        },
+      },
+    },
   };
 
   const optionsStage: ChartOptions<"doughnut"> = {
@@ -388,7 +411,7 @@ export default function Dashboard() {
       },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.label}: ${rupiah(Number(ctx.parsed))}`,
+          label: (ctx) => `${ctx.label}: ${rupiahPrecise(Number(ctx.parsed))}`,
         },
       },
     },
@@ -534,12 +557,13 @@ export default function Dashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Chart Branch - Tampilkan Data Raw dari API */}
             <Card
               title="Expected Credit Loss by Branch"
               currentDate={`${dateRange.from} - ${dateRange.to}`}
             >
               <div className="h-full w-full">
-                <Bar data={dataTop5Branch} options={optionsTop5Branch} />
+                <Bar data={dataBranch} options={optionsBranch} />
               </div>
             </Card>
 
@@ -571,7 +595,7 @@ export default function Dashboard() {
             >
               <div className="h-full w-full overflow-x-auto">
                 <div className="min-w-[1200px] h-full">
-                  <Bar data={dataTop5Product} options={commonBarOptions} />
+                  <Bar data={dataProduct} options={commonBarOptions} />
                 </div>
               </div>
             </Card>

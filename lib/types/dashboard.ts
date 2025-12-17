@@ -26,3 +26,8 @@ export interface EclPerProductData {
   product: string;
   total_ecl: number;
 }
+
+export interface TotalEclPerBranch {
+  cab: string;
+  total_ecl: string;
+}

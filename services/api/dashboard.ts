@@ -6,6 +6,7 @@ import type {
   EclPerStageData,
   EclPerSegmentData,
   EclPerProductData,
+  TotalEclPerBranch, // Pastikan interface ini sudah ada di file types
 } from "@/lib/types/dashboard";
 
 class DashboardService extends BaseApiService {
@@ -70,6 +71,19 @@ class DashboardService extends BaseApiService {
     const queryString = this.buildQuery(params);
     return this.get<ApiResponse<EclPerProductData[]>>(
       `${this.resource}/ecl-per-product${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
+  /**
+   * Get Total ECL per Branch
+   * URL: dashboard/ecl-per-branch?from_date=...&to_date=...
+   */
+  async getEclPerBranch(
+    params?: DashboardParams
+  ): Promise<ApiResponse<TotalEclPerBranch[]>> {
+    const queryString = this.buildQuery(params);
+    return this.get<ApiResponse<TotalEclPerBranch[]>>(
+      `${this.resource}/ecl-per-branch${queryString ? `?${queryString}` : ""}`
     );
   }
 }

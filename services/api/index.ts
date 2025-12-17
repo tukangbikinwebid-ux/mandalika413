@@ -53,6 +53,7 @@ export type {
   EclPerStageData,
   EclPerSegmentData,
   EclPerProductData,
+  TotalEclPerBranch,
 } from "@/lib/types/dashboard";
 
 // 3. Import & Export Service Instances
