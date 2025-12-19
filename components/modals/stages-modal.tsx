@@ -124,7 +124,6 @@ export default function StageModal({
   const prepareEdit = (item: Stage) => {
     setEditingId(item.id);
     setFormData({
-      product_id: item.product_id,
       stage: item.stage,
       range_from: item.range_from,
       range_to: item.range_to,
@@ -144,10 +143,6 @@ export default function StageModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.product_id) {
-      alert("Please select a product");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -225,9 +220,6 @@ export default function StageModal({
                           Stage
                         </th>
                         <th className="px-6 py-4 font-bold text-gray-700 text-sm uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th className="px-6 py-4 font-bold text-gray-700 text-sm uppercase tracking-wider">
                           Range (Days)
                         </th>
                         <th className="px-6 py-4 font-bold text-gray-700 text-sm uppercase tracking-wider">
@@ -270,11 +262,6 @@ export default function StageModal({
                               <div className="font-bold text-gray-900 bg-orange-100 text-orange-700 px-3 py-1 rounded-lg w-fit">
                                 Stage {item.stage}
                               </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                                {item.product_name || "-"}
-                              </span>
                             </td>
                             <td className="px-6 py-4">
                               <span className="font-medium text-gray-800">
@@ -358,12 +345,11 @@ export default function StageModal({
               <form onSubmit={handleSubmit} className="space-y-6 flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* --- CUSTOM SEARCHABLE DROPDOWN PRODUCT --- */}
-                  <div className="space-y-2 md:col-span-2 relative">
+                  {/* <div className="space-y-2 md:col-span-2 relative">
                     <label className="text-sm font-bold text-gray-700">
                       Related Product
                     </label>
                     <div className="relative">
-                      {/* Trigger Button */}
                       <button
                         type="button"
                         onClick={() => setIsProductOpen(!isProductOpen)}
@@ -381,7 +367,6 @@ export default function StageModal({
                         <ChevronDown className="w-4 h-4 text-gray-500" />
                       </button>
 
-                      {/* Dropdown Content */}
                       {isProductOpen && (
                         <div className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                           <div className="p-2 border-b border-gray-100 bg-gray-50">
@@ -446,7 +431,7 @@ export default function StageModal({
                         onClick={() => setIsProductOpen(false)}
                       />
                     )}
-                  </div>
+                  </div> */}
 
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-bold text-gray-700">

@@ -42,6 +42,7 @@ import type {
   EclPerSegmentData,
   EclPerProductData,
   TotalEclPerBranch,
+  TotalEclPerAkad,
 } from "@/services/api";
 
 ChartJS.register(
@@ -141,6 +142,7 @@ export default function Dashboard() {
   const [eclBySegment, setEclBySegment] = useState<EclPerSegmentData[]>([]);
   const [eclByProduct, setEclByProduct] = useState<EclPerProductData[]>([]);
   const [eclByBranch, setEclByBranch] = useState<TotalEclPerBranch[]>([]);
+  const [eclByAkad, setEclByAkad] = useState<TotalEclPerAkad[]>([]);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -174,12 +176,14 @@ export default function Dashboard() {
           resEclSegment,
           resEclProduct,
           resEclBranch,
+          resEclAkad,
         ] = await Promise.all([
           api.dashboard.getTotalEcl(dateParams),
           api.dashboard.getEclPerStage(dateParams),
           api.dashboard.getEclPerSegment(dateParams),
           api.dashboard.getEclPerProduct(dateParams),
           api.dashboard.getEclPerBranch(dateParams),
+          api.dashboard.getEclPerAkad(dateParams),
         ]);
 
         if (resTotalEcl.code === 200) setTotalEcl(resTotalEcl.data);
@@ -190,6 +194,10 @@ export default function Dashboard() {
         // Simpan data Branch apa adanya dari API
         if (resEclBranch.code === 200) {
           setEclByBranch(resEclBranch.data);
+        }
+
+        if (resEclAkad.code === 200) {
+          setEclByAkad(resEclAkad.data);
         }
       } catch (error) {
         console.error("Dashboard data fetch failed:", error);
@@ -325,6 +333,23 @@ export default function Dashboard() {
     }),
     [eclByProduct]
   );
+
+  // 5. Chart Akad
+const dataAkad: ChartData<"bar"> = useMemo(
+  () => ({
+    labels: eclByAkad.map((d) => d.akad),
+    datasets: [
+      {
+        label: "Total ECL",
+        data: eclByAkad.map((d) => parseFloat(d.total_ecl.toString())),
+        backgroundColor: "#FBBF24", // Warna Amber/Kuning agar variatif
+        borderRadius: 8,
+        borderSkipped: false,
+      },
+    ],
+  }),
+  [eclByAkad]
+);
 
   /* ====== Chart Options ====== */
   const commonBarOptions: ChartOptions<"bar"> = {
@@ -584,6 +609,18 @@ export default function Dashboard() {
             <div className="h-full w-full overflow-x-auto">
               <div className="min-w-[600px] h-full">
                 <Bar data={dataSegment} options={commonBarOptions} />
+              </div>
+            </div>
+          </Card>
+
+          {/* TAMBAHKAN INI: Chart Akad */}
+          <Card
+            title="Expected Credit Loss by Akad"
+            currentDate={`${dateRange.from} - ${dateRange.to}`}
+          >
+            <div className="h-full w-full overflow-x-auto">
+              <div className="min-w-[400px] h-full">
+                <Bar data={dataAkad} options={commonBarOptions} />
               </div>
             </div>
           </Card>

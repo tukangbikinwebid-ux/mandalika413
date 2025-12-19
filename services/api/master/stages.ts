@@ -6,7 +6,7 @@ import type { ApiResponse } from "../base";
 // Interface Utama Stage
 export interface Stage {
   id: number;
-  product_id: number;
+  product_id?: number;
   description: string;
   stage: number;
   range_from: number;

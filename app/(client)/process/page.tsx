@@ -465,7 +465,7 @@ export default function ProcessPage() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
-              Kalkulator PSAK 413
+              Penurunan Nilai PSAK 413
             </h1>
             <p className="text-sm text-gray-600">
               Upload Excel Lengkap &rarr; Hitung CKPN

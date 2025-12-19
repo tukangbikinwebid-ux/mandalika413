@@ -31,3 +31,8 @@ export interface TotalEclPerBranch {
   cab: string;
   total_ecl: string;
 }
+
+export interface TotalEclPerAkad {
+  akad: string;
+  total_ecl: string;
+}
