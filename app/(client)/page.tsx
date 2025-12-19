@@ -714,6 +714,7 @@ const dataAkad: ChartData<"bar"> = useMemo(
               >
                 Cancel
               </button>
+              
               <button
                 onClick={() => {
                   setShowAddModal(false);
