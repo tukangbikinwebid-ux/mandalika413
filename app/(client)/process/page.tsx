@@ -124,13 +124,14 @@ export default function ProcessPage() {
   }, [page]);
 
   // --- 1. Fetch Details from Backend (Server Mode) ---
+  // UPDATED: Mapping disesuaikan dengan struktur JSON response (Flat Fields)
   const fetchDetailsFromServer = useCallback(
     async (importId: string, pageNum: number) => {
       setLoadingDetails(true);
 
       try {
         const res = await api.psak413Detail.getAll({
-          psak413_import_id: importId,
+          psak413_import_id: importId, // Filter by Import ID agar sesuai file upload
           page: pageNum,
           paginate: 10,
           orderBy: "psak413_import_details.id",
@@ -145,14 +146,18 @@ export default function ProcessPage() {
             no_rekening: d.no_rekening,
             nama_nasabah: d.nama_nasabah,
             alamat_nasabah: d.alamat_nasabah,
-            product_code: d.product_code || d.product_id,
+
+            // UPDATED MAPPING: Menggunakan flat field dari response JSON "Get All"
+            product_code: d.product_code || d.product_name || "-",
             akad: d.akad,
-            // Mapping New Fields
-            segment: d.segment_name,
+
+            // UPDATED MAPPING: Menggunakan flat field
+            segment: d.segment_name || "-",
+
             stage: d.stage,
             past_due_total: Number(d.past_due_total),
             past_due_day: Number(d.past_due_day),
-            // Existing
+
             plafond: Number(d.plafond),
             os_pokok: Number(d.os_pokok),
             os_margin: Number(d.os_margin),
@@ -193,7 +198,7 @@ export default function ProcessPage() {
         setDataMode("server");
 
         try {
-          // 1. Cek Status Import Terakhir (Hanya sekali, tanpa interval)
+          // 1. Cek Status Import Terakhir
           const res = await api.psak413Import.getById(savedId);
           if (res.code === 200 && res.data) {
             const data = res.data;
@@ -201,10 +206,9 @@ export default function ProcessPage() {
             setProgress(data.progress || 100);
             if (data.errors) setImportErrors(data.errors);
 
-            // Langsung ambil data tabel tanpa menunggu/polling
+            // Langsung ambil data tabel via Service Details
             fetchDetailsFromServer(savedId, 1);
           } else {
-            // Jika ID tidak valid/hapus di server, bersihkan storage
             resetAll();
           }
         } catch (error) {
@@ -216,7 +220,7 @@ export default function ProcessPage() {
 
     restoreState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount
+  }, []);
 
   // --- 3. Handle Local File Preview ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,13 +252,11 @@ export default function ProcessPage() {
         alamat_nasabah: String(row["ALAMAT_NASABAH"] || ""),
         product_code: String(row["KODE_PRODUK"] || ""),
         akad: String(row["AKAD"] || ""),
-        // Mapping Preview (Try to guess Excel Headers)
         segment: String(row["SEGMENT"] || row["SEGMEN"] || "-"),
         stage: row["STAGE"] || row["KOLEKTIBILITAS"] || 1,
         past_due_total:
           Number(row["TOTAL_PAST_DUE"] || row["PAST_DUE_TOTAL"]) || 0,
         past_due_day: Number(row["DAY_PAST_DUE"] || row["DPD"]) || 0,
-        // Existing
         plafond: Number(row["PLAFOND"]) || 0,
         os_pokok: Number(row["POKOK_SISA"]) || 0,
         os_margin: Number(row["MARGIN_SISA"]) || 0,
@@ -282,7 +284,7 @@ export default function ProcessPage() {
     reader.readAsBinaryString(file);
   };
 
-  // --- 4. Upload & Trigger Backend Process (Single Fetch) ---
+  // --- 4. Upload & Trigger Backend Process ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
     const file = fileToUpload;
@@ -303,7 +305,6 @@ export default function ProcessPage() {
         file: actualFile,
       };
 
-      // 1. Create / Upload
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
@@ -312,14 +313,11 @@ export default function ProcessPage() {
         localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
 
         setCurrentImport(res.data);
-
-        // Asumsi: Karena tidak boleh pakai interval, kita anggap backend selesai
-        // atau kita langsung ambil data yang tersedia.
         setRunning(false);
         setProgress(100);
         setShowSuccess(true);
 
-        // 2. Fetch Data Table (Sekali saja)
+        // Fetch Data Table menggunakan API Details
         fetchDetailsFromServer(res.data.id, 1);
       }
     } catch (error) {
@@ -342,7 +340,6 @@ export default function ProcessPage() {
       e.stopPropagation();
     }
 
-    // HAPUS DARI LOCAL STORAGE
     localStorage.removeItem(LS_KEY_IMPORT_ID);
     localStorage.removeItem(LS_KEY_FILENAME);
 
@@ -657,14 +654,12 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Akad
                     </th>
-                    {/* New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Segment
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
                       Stage
                     </th>
-                    {/* End New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Plafond
                     </th>
@@ -674,14 +669,12 @@ export default function ProcessPage() {
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Total OS
                     </th>
-                    {/* New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Total Past Due
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       Day Past Due
                     </th>
-                    {/* End New Columns Header */}
                     <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
                       EAD
                     </th>
@@ -766,7 +759,6 @@ export default function ProcessPage() {
                           {row.product_code}
                         </td>
                         <td className="px-4 py-2">{row.akad}</td>
-                        {/* New Columns Data */}
                         <td className="px-4 py-2">
                           <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">
                             {row.segment || "-"}
@@ -775,7 +767,6 @@ export default function ProcessPage() {
                         <td className="px-4 py-2 text-center font-bold">
                           {row.stage}
                         </td>
-                        {/* End New Columns Data */}
                         <td className="px-4 py-2 text-right text-gray-500">
                           {formatCurrency(row.plafond)}
                         </td>
@@ -785,14 +776,12 @@ export default function ProcessPage() {
                         <td className="px-4 py-2 text-right font-medium">
                           {formatCurrency(row.os_total)}
                         </td>
-                        {/* New Columns Data */}
                         <td className="px-4 py-2 text-right text-red-600">
                           {formatCurrency(row.past_due_total)}
                         </td>
                         <td className="px-4 py-2 text-right font-mono">
                           {row.past_due_day}
                         </td>
-                        {/* End New Columns Data */}
                         <td className="px-4 py-2 text-right font-bold text-gray-800">
                           {formatCurrency(row.ead)}
                         </td>
