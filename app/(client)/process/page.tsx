@@ -186,13 +186,14 @@ export default function ProcessPage() {
     []
   );
 
-  // --- 2. Polling Logic ---
+  // --- 2. Polling Logic (FIXED: No Fetch Loop) ---
   const startPolling = useCallback(
     (importId: string) => {
       if (pollingRef.current) clearInterval(pollingRef.current);
 
       pollingRef.current = setInterval(async () => {
         try {
+          // Hanya fetch status import, BUKAN detail data tabel
           const res = await api.psak413Import.getById(importId);
           if (res.code === 200 && res.data) {
             const updatedImport = res.data;
@@ -209,6 +210,7 @@ export default function ProcessPage() {
               !!updatedImport.finished_at || srvProgress === 100;
 
             if (isFinished) {
+              // Stop interval
               if (pollingRef.current) {
                 clearInterval(pollingRef.current);
                 pollingRef.current = null;
@@ -218,6 +220,7 @@ export default function ProcessPage() {
               setProgress(100);
               setShowSuccess(true);
 
+              // FETCH DATA TABLE ONLY ONCE WHEN FINISHED
               fetchDetailsFromServer(importId, pageRef.current, false);
 
               // Clear file inputs UI but KEEP localStorage
@@ -228,13 +231,12 @@ export default function ProcessPage() {
               return;
             }
 
-            // Silent update jika belum selesai
-            fetchDetailsFromServer(importId, pageRef.current, true);
+            // NOTE: fetchDetailsFromServer DIHAPUS disini agar tidak membebani server
           }
         } catch (error) {
           console.error("Polling error", error);
         }
-      }, 2000);
+      }, 2000); // Interval 2 detik
     },
     [fetchDetailsFromServer]
   );
@@ -265,6 +267,7 @@ export default function ProcessPage() {
               // Jika belum selesai, lanjutkan proses polling
               setRunning(true);
               startPolling(savedId);
+              setLoadingDetails(false); // Matikan loading tabel karena data belum siap
             } else {
               // Jika sudah selesai, set progress 100 dan fetch table
               setRunning(false);
@@ -277,23 +280,17 @@ export default function ProcessPage() {
           }
         } catch (error) {
           console.error("Failed to restore state", error);
-          // Jika error 404/500 saat restore, mungkin data sudah hilang di server
-          // Opsional: resetAll() atau biarkan user melihat error
-        } finally {
-          // Loading hanya dimatikan jika TIDAK lanjut polling
-          // Jika lanjut polling, loading di handle oleh logic polling
-          // Tapi disini kita set false untuk case "Finished" agar spinner utama hilang
-          const savedIdCheck = localStorage.getItem(LS_KEY_IMPORT_ID); // Re-check
-          if (savedIdCheck) {
-            // Biarkan fetchDetailsFromServer yang mengatur loadingDetails untuk table
-          } else {
-            setLoadingDetails(false);
-          }
+          setLoadingDetails(false);
         }
       }
     };
 
     restoreState();
+
+    // CLEANUP FUNCTION: Stop interval saat unmount
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
@@ -473,7 +470,7 @@ export default function ProcessPage() {
           </div>
         </div>
 
-        {/* Action Buttons: Stack on mobile, Row on tablet/desktop */}
+        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full lg:w-auto">
           <div className="flex gap-2 w-full sm:w-auto">
             <button
@@ -557,7 +554,7 @@ export default function ProcessPage() {
       </div>
 
       <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-4">
-        {/* Sidebar Status: Full width on mobile, 1 col on desktop */}
+        {/* Sidebar Status */}
         <div className="col-span-1 space-y-4 md:space-y-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
@@ -669,7 +666,7 @@ export default function ProcessPage() {
           )}
         </div>
 
-        {/* Table: Full width on mobile, 3 cols on desktop */}
+        {/* Table */}
         <div className="col-span-1 lg:col-span-3">
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[500px] lg:h-[75vh]">
             <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-gray-50/50 rounded-t-2xl">
