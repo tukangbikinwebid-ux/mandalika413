@@ -16,12 +16,9 @@ import {
   ChevronRight,
   RotateCcw,
   AlertTriangle,
+  RefreshCw, // [NEW] Icon Refresh
 } from "lucide-react";
 import Swal from "sweetalert2";
-
-// --- Constants for Local Storage ---
-const LS_KEY_IMPORT_ID = "psak413_current_import_id";
-const LS_KEY_FILENAME = "psak413_current_filename";
 
 // --- Helper Functions ---
 const formatCurrency = (val: number) =>
@@ -69,12 +66,10 @@ interface TableRow {
   alamat_nasabah: string;
   product_code: string;
   akad: string;
-  // New Fields
   segment: string | null;
   stage: number | string;
   past_due_total: number;
   past_due_day: number;
-  // Existing Fields
   plafond: number;
   os_pokok: number;
   os_margin: number;
@@ -124,14 +119,13 @@ export default function ProcessPage() {
   }, [page]);
 
   // --- 1. Fetch Details from Backend (Server Mode) ---
-  // UPDATED: Mapping disesuaikan dengan struktur JSON response (Flat Fields)
   const fetchDetailsFromServer = useCallback(
     async (importId: string, pageNum: number) => {
       setLoadingDetails(true);
 
       try {
         const res = await api.psak413Detail.getAll({
-          psak413_import_id: importId, // Filter by Import ID agar sesuai file upload
+          psak413_import_id: importId,
           page: pageNum,
           paginate: 10,
           orderBy: "psak413_import_details.id",
@@ -146,18 +140,12 @@ export default function ProcessPage() {
             no_rekening: d.no_rekening,
             nama_nasabah: d.nama_nasabah,
             alamat_nasabah: d.alamat_nasabah,
-
-            // UPDATED MAPPING: Menggunakan flat field dari response JSON "Get All"
             product_code: d.product_code || d.product_name || "-",
             akad: d.akad,
-
-            // UPDATED MAPPING: Menggunakan flat field
             segment: d.segment_name || "-",
-
             stage: d.stage,
             past_due_total: Number(d.past_due_total),
             past_due_day: Number(d.past_due_day),
-
             plafond: Number(d.plafond),
             os_pokok: Number(d.os_pokok),
             os_margin: Number(d.os_margin),
@@ -186,41 +174,12 @@ export default function ProcessPage() {
     []
   );
 
-  // --- 2. INIT: Restore State from LocalStorage on Mount ---
-  useEffect(() => {
-    const restoreState = async () => {
-      const savedId = localStorage.getItem(LS_KEY_IMPORT_ID);
-      const savedName = localStorage.getItem(LS_KEY_FILENAME);
-
-      if (savedId) {
-        setLoadingDetails(true);
-        if (savedName) setLocalFileName(savedName);
-        setDataMode("server");
-
-        try {
-          // 1. Cek Status Import Terakhir
-          const res = await api.psak413Import.getById(savedId);
-          if (res.code === 200 && res.data) {
-            const data = res.data;
-            setCurrentImport(data);
-            setProgress(data.progress || 100);
-            if (data.errors) setImportErrors(data.errors);
-
-            // Langsung ambil data tabel via Service Details
-            fetchDetailsFromServer(savedId, 1);
-          } else {
-            resetAll();
-          }
-        } catch (error) {
-          console.error("Failed to restore state", error);
-          setLoadingDetails(false);
-        }
-      }
-    };
-
-    restoreState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // --- [NEW] 2. Handle Manual Refresh ---
+  const handleRefresh = () => {
+    if (dataMode === "server" && currentImport?.id) {
+      fetchDetailsFromServer(String(currentImport.id), page);
+    }
+  };
 
   // --- 3. Handle Local File Preview ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -308,17 +267,16 @@ export default function ProcessPage() {
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
-        // SIMPAN KE LOCAL STORAGE
-        localStorage.setItem(LS_KEY_IMPORT_ID, String(res.data.id));
-        localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
-
         setCurrentImport(res.data);
         setRunning(false);
         setProgress(100);
         setShowSuccess(true);
 
         // Fetch Data Table menggunakan API Details
-        fetchDetailsFromServer(res.data.id, 1);
+        // [UPDATED] Beri jeda 1.5 detik agar backend selesai insert DB
+        setTimeout(() => {
+          fetchDetailsFromServer(res.data.id, 1);
+        }, 1500);
       }
     } catch (error) {
       console.error("Upload failed", error);
@@ -339,9 +297,6 @@ export default function ProcessPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-
-    localStorage.removeItem(LS_KEY_IMPORT_ID);
-    localStorage.removeItem(LS_KEY_FILENAME);
 
     setRunning(false);
     setProgress(0);
@@ -609,6 +564,23 @@ export default function ProcessPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
+                {/* --- [NEW] TOMBOL REFRESH --- */}
+                {dataMode === "server" && (
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loadingDetails}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1"
+                    title="Muat Ulang Data"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${
+                        loadingDetails ? "animate-spin" : ""
+                      }`}
+                    />
+                    Refresh
+                  </button>
+                )}
+
                 <button
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1 || loadingDetails}
