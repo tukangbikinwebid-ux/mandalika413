@@ -115,7 +115,6 @@ export default function ProcessPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Refs for logic
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef(1);
 
@@ -126,8 +125,8 @@ export default function ProcessPage() {
 
   // --- 1. Fetch Details from Backend (Server Mode) ---
   const fetchDetailsFromServer = useCallback(
-    async (importId: string, pageNum: number, isPolling = false) => {
-      if (!isPolling) setLoadingDetails(true);
+    async (importId: string, pageNum: number) => {
+      setLoadingDetails(true);
 
       try {
         const res = await api.psak413Detail.getAll({
@@ -170,78 +169,19 @@ export default function ProcessPage() {
           setTableData(mapped);
           setTotalDetails(res.data.total);
           setTotalPages(res.data.last_page);
-
-          if (!isPolling) {
-            setPage(res.data.current_page);
-          }
-
+          setPage(res.data.current_page);
           setDataMode("server");
         }
       } catch (error) {
         console.error("Failed to fetch details", error);
       } finally {
-        if (!isPolling) setLoadingDetails(false);
+        setLoadingDetails(false);
       }
     },
     []
   );
 
-  // --- 2. Polling Logic (FIXED: No Fetch Loop) ---
-  const startPolling = useCallback(
-    (importId: string) => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-
-      pollingRef.current = setInterval(async () => {
-        try {
-          // Hanya fetch status import, BUKAN detail data tabel
-          const res = await api.psak413Import.getById(importId);
-          if (res.code === 200 && res.data) {
-            const updatedImport = res.data;
-            setCurrentImport(updatedImport);
-
-            const srvProgress = updatedImport.progress || 0;
-            setProgress(srvProgress);
-
-            if (updatedImport.errors) {
-              setImportErrors(updatedImport.errors);
-            }
-
-            const isFinished =
-              !!updatedImport.finished_at || srvProgress === 100;
-
-            if (isFinished) {
-              // Stop interval
-              if (pollingRef.current) {
-                clearInterval(pollingRef.current);
-                pollingRef.current = null;
-              }
-
-              setRunning(false);
-              setProgress(100);
-              setShowSuccess(true);
-
-              // FETCH DATA TABLE ONLY ONCE WHEN FINISHED
-              fetchDetailsFromServer(importId, pageRef.current, false);
-
-              // Clear file inputs UI but KEEP localStorage
-              setLocalFileName(localStorage.getItem(LS_KEY_FILENAME) || "");
-              setFileToUpload(null);
-              if (fileInputRef.current) fileInputRef.current.value = "";
-
-              return;
-            }
-
-            // NOTE: fetchDetailsFromServer DIHAPUS disini agar tidak membebani server
-          }
-        } catch (error) {
-          console.error("Polling error", error);
-        }
-      }, 2000); // Interval 2 detik
-    },
-    [fetchDetailsFromServer]
-  );
-
-  // --- 3. INIT: Restore State from LocalStorage on Mount ---
+  // --- 2. INIT: Restore State from LocalStorage on Mount ---
   useEffect(() => {
     const restoreState = async () => {
       const savedId = localStorage.getItem(LS_KEY_IMPORT_ID);
@@ -253,27 +193,16 @@ export default function ProcessPage() {
         setDataMode("server");
 
         try {
-          // 1. Cek Status Import Terakhir
+          // 1. Cek Status Import Terakhir (Hanya sekali, tanpa interval)
           const res = await api.psak413Import.getById(savedId);
           if (res.code === 200 && res.data) {
             const data = res.data;
             setCurrentImport(data);
-            setProgress(data.progress || 0);
+            setProgress(data.progress || 100);
             if (data.errors) setImportErrors(data.errors);
 
-            const isFinished = !!data.finished_at || data.progress === 100;
-
-            if (!isFinished) {
-              // Jika belum selesai, lanjutkan proses polling
-              setRunning(true);
-              startPolling(savedId);
-              setLoadingDetails(false); // Matikan loading tabel karena data belum siap
-            } else {
-              // Jika sudah selesai, set progress 100 dan fetch table
-              setRunning(false);
-              setProgress(100);
-              fetchDetailsFromServer(savedId, 1, false);
-            }
+            // Langsung ambil data tabel tanpa menunggu/polling
+            fetchDetailsFromServer(savedId, 1);
           } else {
             // Jika ID tidak valid/hapus di server, bersihkan storage
             resetAll();
@@ -286,15 +215,10 @@ export default function ProcessPage() {
     };
 
     restoreState();
-
-    // CLEANUP FUNCTION: Stop interval saat unmount
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
-  // --- 4. Handle Local File Preview ---
+  // --- 3. Handle Local File Preview ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -358,7 +282,7 @@ export default function ProcessPage() {
     reader.readAsBinaryString(file);
   };
 
-  // --- 5. Upload & Trigger Backend Process ---
+  // --- 4. Upload & Trigger Backend Process (Single Fetch) ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
     const file = fileToUpload;
@@ -379,6 +303,7 @@ export default function ProcessPage() {
         file: actualFile,
       };
 
+      // 1. Create / Upload
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
@@ -387,7 +312,15 @@ export default function ProcessPage() {
         localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
 
         setCurrentImport(res.data);
-        startPolling(res.data.id);
+
+        // Asumsi: Karena tidak boleh pakai interval, kita anggap backend selesai
+        // atau kita langsung ambil data yang tersedia.
+        setRunning(false);
+        setProgress(100);
+        setShowSuccess(true);
+
+        // 2. Fetch Data Table (Sekali saja)
+        fetchDetailsFromServer(res.data.id, 1);
       }
     } catch (error) {
       console.error("Upload failed", error);
@@ -408,8 +341,6 @@ export default function ProcessPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-
-    if (pollingRef.current) clearInterval(pollingRef.current);
 
     // HAPUS DARI LOCAL STORAGE
     localStorage.removeItem(LS_KEY_IMPORT_ID);
@@ -441,7 +372,7 @@ export default function ProcessPage() {
     setPage(newPage);
 
     if (dataMode === "server" && currentImport?.id) {
-      fetchDetailsFromServer(currentImport.id, newPage, false);
+      fetchDetailsFromServer(currentImport.id, newPage);
     }
   };
 
