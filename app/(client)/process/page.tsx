@@ -16,9 +16,13 @@ import {
   ChevronRight,
   RotateCcw,
   AlertTriangle,
-  RefreshCw, // [NEW] Icon Refresh
+  RefreshCw,
 } from "lucide-react";
 import Swal from "sweetalert2";
+
+// --- Constants for Local Storage (Agar Data Persisten) ---
+const LS_KEY_IMPORT_ID = "psak413_active_import_id";
+const LS_KEY_FILENAME = "psak413_active_filename";
 
 // --- Helper Functions ---
 const formatCurrency = (val: number) =>
@@ -37,8 +41,6 @@ const formatPercent = (val: number) =>
 
 const formatDate = (dateInput: string | number | undefined) => {
   if (!dateInput) return "-";
-
-  // Handle Excel Serial Date
   if (typeof dateInput === "number") {
     const date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
     return date.toLocaleDateString("id-ID", {
@@ -47,8 +49,6 @@ const formatDate = (dateInput: string | number | undefined) => {
       year: "numeric",
     });
   }
-
-  // Handle ISO String from Backend
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("id-ID", {
@@ -174,76 +174,126 @@ export default function ProcessPage() {
     []
   );
 
-  // --- [NEW] 2. Handle Manual Refresh ---
+  // --- 2. INIT: Restore State from LocalStorage on Mount ---
+  useEffect(() => {
+    const initPage = async () => {
+      const savedId = localStorage.getItem(LS_KEY_IMPORT_ID);
+      const savedName = localStorage.getItem(LS_KEY_FILENAME);
+
+      if (savedId) {
+        setLoadingDetails(true);
+        if (savedName) setLocalFileName(savedName);
+        setDataMode("server");
+
+        try {
+          const importRes = await api.psak413Import.getById(savedId);
+          if (importRes.code === 200 && importRes.data) {
+            const data = importRes.data;
+            setCurrentImport(data);
+            setProgress(data.progress || 100);
+            if (data.errors) setImportErrors(data.errors);
+
+            await fetchDetailsFromServer(savedId, 1);
+          } else {
+            localStorage.removeItem(LS_KEY_IMPORT_ID);
+            localStorage.removeItem(LS_KEY_FILENAME);
+          }
+        } catch (error) {
+          console.error("Failed to restore session", error);
+        } finally {
+          setLoadingDetails(false);
+        }
+      }
+    };
+
+    initPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- 3. Handle Manual Refresh ---
   const handleRefresh = () => {
     if (dataMode === "server" && currentImport?.id) {
       fetchDetailsFromServer(String(currentImport.id), page);
     }
   };
 
-  // --- 3. Handle Local File Preview ---
+  // --- 4. Handle Local File Preview (UPDATED UX) ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // STEP 1: Update UI Langsung (Nama File Muncul Dulu)
     setLocalFileName(file.name);
     setFileToUpload(file);
+
+    // Switch ke mode preview dan reset data lama
     setDataMode("preview");
-    setLoadingDetails(true);
-    setImportErrors(null);
+    setTableData([]);
     setCurrentImport(null);
+    setImportErrors(null);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: "binary" });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
+    // Tampilkan loading di table
+    setLoadingDetails(true);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawData = XLSX.utils.sheet_to_json<any>(ws);
+    // Jika memilih file baru, kita hapus session ID lama di storage
+    // Agar jika di-refresh, tidak kembali ke data server yang lama
+    localStorage.removeItem(LS_KEY_IMPORT_ID);
+    localStorage.removeItem(LS_KEY_FILENAME);
 
-      const mappedData: TableRow[] = rawData.slice(0, 50).map((row, idx) => ({
-        id: idx,
-        cab: String(row["KODE_CABANG"] || ""),
-        no_rekening: String(row["NO_REKENING"] || ""),
-        nama_nasabah: String(row["NAMA_NASABAH"] || ""),
-        alamat_nasabah: String(row["ALAMAT_NASABAH"] || ""),
-        product_code: String(row["KODE_PRODUK"] || ""),
-        akad: String(row["AKAD"] || ""),
-        segment: String(row["SEGMENT"] || row["SEGMEN"] || "-"),
-        stage: row["STAGE"] || row["KOLEKTIBILITAS"] || 1,
-        past_due_total:
-          Number(row["TOTAL_PAST_DUE"] || row["PAST_DUE_TOTAL"]) || 0,
-        past_due_day: Number(row["DAY_PAST_DUE"] || row["DPD"]) || 0,
-        plafond: Number(row["PLAFOND"]) || 0,
-        os_pokok: Number(row["POKOK_SISA"]) || 0,
-        os_margin: Number(row["MARGIN_SISA"]) || 0,
-        os_total: Number(row["TOTAL_OUTSTANDING"]) || 0,
-        ead: Number(row["EAD"]) || 0,
-        pd:
-          typeof row["PD"] === "string"
-            ? Number(row["PD"].replace("%", "")) / 100
-            : Number(row["PD"]),
-        lgd:
-          typeof row["LGD"] === "string"
-            ? Number(row["LGD"].replace("%", "")) / 100
-            : Number(row["LGD"]),
-        start_date: row["START_DATE"] as string | number,
-        maturity_date: row["MATURITY_DATE"] as string | number,
-        psak413_amount: 0,
-        status: "Pending",
-      }));
+    // STEP 2: Baca Data dengan Delay agar UI render dulu
+    setTimeout(() => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
 
-      setTableData(mappedData);
-      setTotalDetails(rawData.length);
-      setTotalPages(Math.ceil(rawData.length / 10));
-      setLoadingDetails(false);
-    };
-    reader.readAsBinaryString(file);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawData = XLSX.utils.sheet_to_json<any>(ws);
+
+        const mappedData: TableRow[] = rawData.slice(0, 50).map((row, idx) => ({
+          id: idx,
+          cab: String(row["KODE_CABANG"] || ""),
+          no_rekening: String(row["NO_REKENING"] || ""),
+          nama_nasabah: String(row["NAMA_NASABAH"] || ""),
+          alamat_nasabah: String(row["ALAMAT_NASABAH"] || ""),
+          product_code: String(row["KODE_PRODUK"] || ""),
+          akad: String(row["AKAD"] || ""),
+          segment: String(row["SEGMENT"] || row["SEGMEN"] || "-"),
+          stage: row["STAGE"] || row["KOLEKTIBILITAS"] || 1,
+          past_due_total:
+            Number(row["TOTAL_PAST_DUE"] || row["PAST_DUE_TOTAL"]) || 0,
+          past_due_day: Number(row["DAY_PAST_DUE"] || row["DPD"]) || 0,
+          plafond: Number(row["PLAFOND"]) || 0,
+          os_pokok: Number(row["POKOK_SISA"]) || 0,
+          os_margin: Number(row["MARGIN_SISA"]) || 0,
+          os_total: Number(row["TOTAL_OUTSTANDING"]) || 0,
+          ead: Number(row["EAD"]) || 0,
+          pd:
+            typeof row["PD"] === "string"
+              ? Number(row["PD"].replace("%", "")) / 100
+              : Number(row["PD"]),
+          lgd:
+            typeof row["LGD"] === "string"
+              ? Number(row["LGD"].replace("%", "")) / 100
+              : Number(row["LGD"]),
+          start_date: row["START_DATE"] as string | number,
+          maturity_date: row["MATURITY_DATE"] as string | number,
+          psak413_amount: 0,
+          status: "Pending",
+        }));
+
+        setTableData(mappedData);
+        setTotalDetails(rawData.length);
+        setTotalPages(Math.ceil(rawData.length / 10));
+        setLoadingDetails(false); // Selesai loading
+      };
+      reader.readAsBinaryString(file);
+    }, 500); // Delay 500ms agar user melihat transisi "File Selected" -> "Loading Table" -> "Data Muncul"
   };
 
-  // --- 4. Upload & Trigger Backend Process ---
+  // --- 5. Upload & Trigger Backend Process ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
     const file = fileToUpload;
@@ -254,6 +304,7 @@ export default function ProcessPage() {
 
     setRunning(true);
     setProgress(0);
+    // Kita kosongkan table saat mulai proses upload agar terlihat sedang bekerja
     setTableData([]);
     setDataMode("server");
     setImportErrors(null);
@@ -267,13 +318,16 @@ export default function ProcessPage() {
       const res = await api.psak413Import.create(payload);
 
       if (res.code === 200 && res.data) {
+        // SIMPAN ke LocalStorage hanya setelah sukses Upload
+        localStorage.setItem(LS_KEY_IMPORT_ID, String(res.data.id));
+        localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
+
         setCurrentImport(res.data);
         setRunning(false);
         setProgress(100);
         setShowSuccess(true);
 
-        // Fetch Data Table menggunakan API Details
-        // [UPDATED] Beri jeda 1.5 detik agar backend selesai insert DB
+        // Fetch Data Table
         setTimeout(() => {
           fetchDetailsFromServer(res.data.id, 1);
         }, 1500);
@@ -297,6 +351,10 @@ export default function ProcessPage() {
       e.preventDefault();
       e.stopPropagation();
     }
+
+    // HAPUS LocalStorage hanya saat tombol Reset diklik
+    localStorage.removeItem(LS_KEY_IMPORT_ID);
+    localStorage.removeItem(LS_KEY_FILENAME);
 
     setRunning(false);
     setProgress(0);
@@ -564,7 +622,7 @@ export default function ProcessPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
-                {/* --- [NEW] TOMBOL REFRESH --- */}
+                {/* --- TOMBOL REFRESH MANUAL --- */}
                 {dataMode === "server" && (
                   <button
                     onClick={handleRefresh}
