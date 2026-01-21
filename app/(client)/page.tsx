@@ -2,19 +2,11 @@
 
 import { useMemo, useState, useEffect } from "react";
 import {
-  TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   Calendar,
-  Grid3x3,
-  Plus,
-  X,
   DollarSign,
-  Box,
-  Package,
-  Layers,
-  ListOrdered,
   Loader2,
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -31,12 +23,8 @@ import {
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
 
-// --- IMPORT SERVICE & MODAL ---
+// --- IMPORT SERVICE ---
 import { api } from "@/services/api";
-import ProductCategoryModal from "@/components/modals/product-category-modal";
-import ProductModal from "@/components/modals/product-modal";
-import SegmentModal from "@/components/modals/segment-modal";
-import StageModal from "@/components/modals/stages-modal";
 import type {
   EclPerStageData,
   EclPerSegmentData,
@@ -105,10 +93,6 @@ function Card({
 
 /* =================== DASHBOARD =================== */
 export default function Dashboard() {
-  /* Header & widget states */
-  const [showWidgetModal, setShowWidgetModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-
   // --- DATE FILTER STATE (DYNAMIC) ---
   const today = new Date();
   const pastDate = new Date();
@@ -119,22 +103,8 @@ export default function Dashboard() {
     to: formatDateInput(today),
   });
 
-  // --- MODAL STATES ---
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showSegmentModal, setShowSegmentModal] = useState(false);
-  const [showStageModal, setShowStageModal] = useState(false);
-
   // --- DASHBOARD DATA STATES ---
   const [isLoading, setIsLoading] = useState(true);
-
-  // Count Stats
-  const [counts, setCounts] = useState({
-    categories: 0,
-    products: 0,
-    segments: 0,
-    stages: 0,
-  });
 
   // ECL Data
   const [totalEcl, setTotalEcl] = useState(0);
@@ -149,22 +119,6 @@ export default function Dashboard() {
     const loadDashboardData = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch Counts
-        const [resCat, resProd, resSeg, resStage] = await Promise.all([
-          api.productCategory.getAll({ paginate: 1 }),
-          api.product.getAll({ paginate: 1 }),
-          api.segment.getAll({ paginate: 1 }),
-          api.stage.getAll({ paginate: 1 }),
-        ]);
-
-        setCounts({
-          categories: resCat.code === 200 ? resCat.data.total : 0,
-          products: resProd.code === 200 ? resProd.data.total : 0,
-          segments: resSeg.code === 200 ? resSeg.data.total : 0,
-          stages: resStage.code === 200 ? resStage.data.total : 0,
-        });
-
-        // 2. Fetch Dashboard Charts
         const dateParams = {
           from_date: dateRange.from,
           to_date: dateRange.to,
@@ -190,15 +144,8 @@ export default function Dashboard() {
         if (resEclStage.code === 200) setEclByStage(resEclStage.data);
         if (resEclSegment.code === 200) setEclBySegment(resEclSegment.data);
         if (resEclProduct.code === 200) setEclByProduct(resEclProduct.data);
-
-        // Simpan data Branch apa adanya dari API
-        if (resEclBranch.code === 200) {
-          setEclByBranch(resEclBranch.data);
-        }
-
-        if (resEclAkad.code === 200) {
-          setEclByAkad(resEclAkad.data);
-        }
+        if (resEclBranch.code === 200) setEclByBranch(resEclBranch.data);
+        if (resEclAkad.code === 200) setEclByAkad(resEclAkad.data);
       } catch (error) {
         console.error("Dashboard data fetch failed:", error);
       } finally {
@@ -209,57 +156,17 @@ export default function Dashboard() {
     loadDashboardData();
   }, [dateRange]);
 
-  /* ======= Stats List Configuration ======= */
-  const stats = [
+  /* ======= Summary Stats ======= */
+  const summaryStats = [
     {
-      title: "Total ECL (Provision)",
+      title: "Total ECL (Expected Credit Loss)",
+      subtitle: "Total Provision Amount",
       amount: isLoading ? "Loading..." : rupiah(totalEcl),
-      cents: "",
       change: "+1.9%",
+      trend: "vs last period",
       isPositive: true,
       icon: DollarSign,
       gradient: "from-yellow-400 to-orange-500",
-      onClick: undefined,
-    },
-    {
-      title: "Product Categories",
-      amount: isLoading ? "..." : counts.categories.toLocaleString("id-ID"),
-      cents: " Items",
-      change: "Manage",
-      isPositive: true,
-      icon: Box,
-      gradient: "from-blue-400 to-indigo-500",
-      onClick: () => setShowCategoryModal(true),
-    },
-    {
-      title: "Products",
-      amount: isLoading ? "..." : counts.products.toLocaleString("id-ID"),
-      cents: " Items",
-      change: "Manage",
-      isPositive: true,
-      icon: Package,
-      gradient: "from-emerald-400 to-teal-500",
-      onClick: () => setShowProductModal(true),
-    },
-    {
-      title: "Segments",
-      amount: isLoading ? "..." : counts.segments.toLocaleString("id-ID"),
-      cents: " Items",
-      change: "Manage",
-      isPositive: true,
-      icon: Layers,
-      gradient: "from-purple-400 to-fuchsia-500",
-      onClick: () => setShowSegmentModal(true),
-    },
-    {
-      title: "Stages",
-      amount: isLoading ? "..." : counts.stages.toLocaleString("id-ID"),
-      cents: " Items",
-      change: "Manage",
-      isPositive: true,
-      icon: ListOrdered,
-      gradient: "from-rose-400 to-red-500",
-      onClick: () => setShowStageModal(true),
     },
   ];
 
@@ -445,128 +352,100 @@ const dataAkad: ChartData<"bar"> = useMemo(
 
   /* =================== UI =================== */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 p-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8 gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
-          <button className="p-3 bg-white rounded-2xl shadow-md border-2 border-orange-200 hover:shadow-xl hover:border-orange-300 transition-all transform hover:scale-105 hidden sm:block">
-            <Calendar className="w-5 h-5 text-orange-600" />
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 p-4 md:p-8">
+      {/* Page Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">
+          Dashboard Overview
+        </h1>
+        <p className="text-gray-600 font-medium">
+          Monitor and analyze your Expected Credit Loss data
+        </p>
+      </div>
 
-          {/* --- DATE PICKER INPUTS --- */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-2 rounded-2xl shadow-md border-2 border-orange-200 w-full sm:w-auto">
-            <div className="flex items-center gap-2 px-2">
-              <span className="text-xs font-bold text-gray-500 uppercase">
-                From
-              </span>
-              <input
-                type="date"
-                value={dateRange.from}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, from: e.target.value })
-                }
-                className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
-              />
-            </div>
-            <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
-            <div className="flex items-center gap-2 px-2">
-              <span className="text-xs font-bold text-gray-500 uppercase">
-                To
-              </span>
-              <input
-                type="date"
-                value={dateRange.to}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, to: e.target.value })
-                }
-                className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
-              />
-            </div>
+      {/* Date Filter Section */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-white rounded-2xl shadow-md border-2 border-orange-200">
+            <Calendar className="w-5 h-5 text-orange-600" />
           </div>
+          <span className="text-sm font-bold text-gray-700">Date Range Filter</span>
         </div>
 
-        <div className="flex items-center gap-3 w-full lg:w-auto">
-          <button
-            onClick={() => setShowWidgetModal(true)}
-            className="flex-1 lg:flex-none px-5 py-3 bg-white rounded-2xl shadow-md border-2 border-gray-200 hover:shadow-xl hover:border-orange-300 transition-all font-semibold text-gray-700 flex items-center justify-center gap-2 transform hover:scale-105"
-          >
-            <Grid3x3 className="w-5 h-5 text-orange-500" />
-            <span className="hidden sm:inline">Manage widgets</span>
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl shadow-xl shadow-orange-500/40 hover:shadow-2xl hover:shadow-orange-500/50 transition-all font-bold text-white flex items-center justify-center gap-2 transform hover:scale-105"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Add new widget</span>
-          </button>
+        <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-2xl shadow-md border-2 border-orange-200 w-full sm:w-auto">
+          <div className="flex items-center gap-2 px-2">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              From
+            </span>
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, from: e.target.value })
+              }
+              className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
+            />
+          </div>
+          <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
+          <div className="flex items-center gap-2 px-2">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              To
+            </span>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, to: e.target.value })
+              }
+              className="font-semibold text-gray-700 outline-none text-sm cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Stats atas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8">
-        {stats.map((stat, i) => {
+      {/* Summary Stats Card */}
+      <div className="mb-8">
+        {summaryStats.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <div
               key={i}
-              onClick={stat.onClick}
-              className={`group relative bg-white rounded-3xl p-6 shadow-lg border-2 border-orange-100 hover:shadow-2xl hover:border-orange-300 transition-all duration-300 overflow-hidden transform hover:scale-105 ${
-                stat.onClick ? "cursor-pointer active:scale-95" : ""
-              }`}
+              className="group relative bg-white rounded-3xl p-8 shadow-xl border-2 border-orange-100 hover:shadow-2xl hover:border-orange-300 transition-all duration-300 overflow-hidden"
             >
               <div
-                className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
+                className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-5`}
               />
-              <div className="relative flex flex-col h-full">
-                <div className="flex items-start justify-between mb-4">
+              <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div className="flex items-start gap-4">
                   <div
-                    className={`p-3 rounded-2xl bg-gradient-to-br ${stat.gradient} shadow-lg`}
+                    className={`p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} shadow-lg`}
                   >
-                    <Icon className="w-6 h-6 text-white" />
+                    <Icon className="w-8 h-8 text-white" />
                   </div>
-                  <button className="p-2 rounded-full bg-orange-50 opacity-0 group-hover:opacity-100 transition-all hover:bg-orange-100 transform hover:rotate-45">
-                    <ArrowUpRight className="w-4 h-4 text-orange-600" />
-                  </button>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">
+                      {stat.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 font-medium">
+                      {stat.subtitle}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-500 mb-2">
-                  {stat.title}
-                </h3>
-                <div className="flex items-baseline mb-3">
-                  <span
-                    className={`font-black text-gray-900 ${
-                      stat.title.includes("ECL") ? "text-xl" : "text-3xl"
-                    }`}
-                  >
+                <div className="flex flex-col items-start md:items-end gap-3">
+                  <span className="text-4xl font-black text-gray-900">
                     {stat.amount}
                   </span>
-                  {stat.cents && (
-                    <span className="text-lg font-bold text-gray-400 ml-1">
-                      {stat.cents}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-auto">
-                  {stat.isPositive ? (
+                  <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 px-3 py-1.5 bg-green-100 rounded-xl border border-green-200">
-                      <TrendingUp className="w-3 h-3 text-green-700" />
-                      <span className="text-xs font-bold text-green-700">
+                      <TrendingUp className="w-4 h-4 text-green-700" />
+                      <span className="text-sm font-bold text-green-700">
                         {stat.change}
                       </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1 px-3 py-1.5 bg-red-100 rounded-xl border border-red-200">
-                      <TrendingDown className="w-3 h-3 text-red-700" />
-                      <span className="text-xs font-bold text-red-700">
-                        {stat.change}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-xs font-medium text-gray-400">
-                    {stat.change === "Manage"
-                      ? "Click to edit"
-                      : "vs last month"}
-                  </span>
+                    <span className="text-sm font-medium text-gray-500">
+                      {stat.trend}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -640,127 +519,6 @@ const dataAkad: ChartData<"bar"> = useMemo(
         </>
       )}
 
-      {/* --- MODALS (CRUD) --- */}
-      {/* 1. Modal Manage Widgets */}
-      {showWidgetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-black text-gray-900">
-                Manage Widgets
-              </h2>
-              <button
-                onClick={() => setShowWidgetModal(false)}
-                className="p-2 rounded-full hover:bg-orange-100 transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {[
-                "ECL Charts",
-                "ECL Composition",
-                "Recent ECL Movements",
-                "Saving Goals",
-              ].map((widget) => (
-                <div
-                  key={widget}
-                  className="flex items-center justify-between p-4 rounded-2xl border-2 border-gray-200 hover:border-orange-300 transition-all"
-                >
-                  <span className="font-bold text-gray-700">{widget}</span>
-                  <label className="relative inline-block w-12 h-6">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      defaultChecked
-                    />
-                    <div className="w-full h-full bg-gray-300 rounded-full peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-yellow-500 transition-all" />
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6 shadow-md" />
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 pt-6 border-t-2 border-gray-100">
-              <button
-                onClick={() => setShowWidgetModal(false)}
-                className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Modal Add Widget */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-2 border-orange-200 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-black text-gray-900">
-                Add New Widget
-              </h2>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 rounded-full hover:bg-orange-100 transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-6 py-3 rounded-xl border-2 border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  alert("Widget added successfully!");
-                }}
-                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 font-bold text-white hover:shadow-xl transition-all"
-              >
-                Add Widget
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. CRUD Modals */}
-      <ProductCategoryModal
-        isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-        onUpdateTotal={(total) =>
-          setCounts((prev) => ({ ...prev, categories: total }))
-        }
-      />
-
-      <ProductModal
-        isOpen={showProductModal}
-        onClose={() => setShowProductModal(false)}
-        onUpdateTotal={(total) =>
-          setCounts((prev) => ({ ...prev, products: total }))
-        }
-      />
-
-      <SegmentModal
-        isOpen={showSegmentModal}
-        onClose={() => setShowSegmentModal(false)}
-        onUpdateTotal={(total) =>
-          setCounts((prev) => ({ ...prev, segments: total }))
-        }
-      />
-
-      <StageModal
-        isOpen={showStageModal}
-        onClose={() => setShowStageModal(false)}
-        onUpdateTotal={(total) =>
-          setCounts((prev) => ({ ...prev, stages: total }))
-        }
-      />
     </div>
   );
 }

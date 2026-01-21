@@ -11,8 +11,9 @@ import {
   ChevronDown,
   ChartArea,
   Bell,
-  Menu, // Icon Hamburger
-  X, // Icon Close
+  Menu,
+  X,
+  Settings,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { api, authService } from "@/services/api";
@@ -25,11 +26,13 @@ export default function Header({
   setActiveTab?: (tab: string) => void;
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State untuk Mobile Menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
 
   const toggleProfileDropdown = () => setIsProfileOpen((prev) => !prev);
   const toggleMobileMenu = () => setIsMobileMenuOpen((prev) => !prev);
+  const toggleConfigDropdown = () => setIsConfigOpen((prev) => !prev);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -76,6 +79,13 @@ export default function Header({
     { id: "process", label: "Process", icon: Zap, href: "/process" },
     { id: "post-gl", label: "Posting GL", icon: ChartArea, href: "/post-gl" },
   ] as const;
+
+  const configMenuItems = [
+    { label: "Product Categories", href: "/config/product-categories" },
+    { label: "Products", href: "/config/products" },
+    { label: "Segments", href: "/config/segments" },
+    { label: "Stages", href: "/config/stages" },
+  ];
 
   const isPathActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -136,6 +146,64 @@ export default function Header({
               </Link>
             );
           })}
+
+          {/* Configuration Dropdown */}
+          <div className="relative">
+            <button
+              onClick={toggleConfigDropdown}
+              className={`group relative px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 transform hover:scale-105 ${
+                pathname.startsWith("/config")
+                  ? "text-yellow-900 shadow-xl"
+                  : "text-white hover:text-yellow-100"
+              }`}
+            >
+              {pathname.startsWith("/config") && (
+                <div className="absolute inset-0 bg-white rounded-xl shadow-2xl"></div>
+              )}
+              <div className="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                <span>Configuration</span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-300 ${
+                    isConfigOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+              {pathname.startsWith("/config") && (
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent rounded-full"></div>
+              )}
+            </button>
+
+            {isConfigOpen && (
+              <div className="absolute right-0 mt-3 w-56 origin-top-right animate-in fade-in zoom-in-95 duration-200 z-50">
+                <div className="absolute -top-2 right-6 w-4 h-4 bg-white rotate-45 shadow-lg"></div>
+                <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+                  {configMenuItems.map((item, index) => (
+                    <Link key={index} href={item.href}>
+                      <button
+                        onClick={() => setIsConfigOpen(false)}
+                        className={`w-full px-5 py-3.5 text-left hover:bg-orange-50 flex items-center gap-3 transition-colors duration-200 font-medium text-sm ${
+                          pathname === item.href
+                            ? "bg-orange-50 text-orange-600"
+                            : "text-gray-700"
+                        } ${index !== 0 ? "border-t border-gray-100" : ""}`}
+                      >
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            pathname === item.href
+                              ? "bg-orange-500"
+                              : "bg-gray-300"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Section: Notif, Profile & Hamburger */}
@@ -224,7 +292,7 @@ export default function Header({
 
       {/* Mobile Navigation Menu (Slide down) */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/20 shadow-xl animate-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/20 shadow-xl animate-in slide-in-from-top-2 duration-200 z-40">
           <div className="flex flex-col p-4 gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -254,6 +322,47 @@ export default function Header({
                 </Link>
               );
             })}
+
+            {/* Configuration Section in Mobile */}
+            <div className="pt-2 mt-2 border-t border-gray-200">
+              <button
+                onClick={toggleConfigDropdown}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 text-gray-700 hover:bg-gray-50"
+              >
+                <Settings className="w-5 h-5 text-gray-400" />
+                <span>Configuration</span>
+                <ChevronDown
+                  className={`w-4 h-4 ml-auto transition-transform duration-300 ${
+                    isConfigOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {isConfigOpen && (
+                <div className="mt-2 ml-4 space-y-1">
+                  {configMenuItems.map((item, index) => (
+                    <Link key={index} href={item.href}>
+                      <button
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 ${
+                          pathname === item.href
+                            ? "bg-orange-50 text-orange-600"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            pathname === item.href
+                              ? "bg-orange-500"
+                              : "bg-gray-300"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
