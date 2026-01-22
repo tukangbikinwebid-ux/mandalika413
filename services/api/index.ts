@@ -40,6 +40,9 @@ export type {
   PSAK413Import,
   PSAK413ImportParams,
   CreateImportRequest,
+  PaginatedResult,
+  PaginationMeta,
+  NestedPaginatedResult,
 } from "@/lib/types/psak413-imports";
 
 export type {
@@ -55,6 +58,11 @@ export type {
   EclPerProductData,
   TotalEclPerBranch,
   TotalEclPerAkad,
+  EclPerStageResponse,
+  EclPerSegmentResponse,
+  EclPerProductResponse,
+  EclPerBranchResponse,
+  EclPerAkadResponse,
 } from "@/lib/types/dashboard";
 
 // 3. Import & Export Service Instances

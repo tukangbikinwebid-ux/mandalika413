@@ -3,6 +3,9 @@ import type { ApiResponse } from "../base";
 
 /** --- Interfaces --- */
 
+// Interface untuk Product relation dalam Stage
+import type { Product } from "./product";
+
 // Interface Utama Stage
 export interface Stage {
   id: number;
@@ -11,14 +14,11 @@ export interface Stage {
   stage: number;
   range_from: number;
   range_to: number;
-  status: boolean | number; // Updated to accept number (0/1) from backend commonly
+  status: boolean | number | string;
   created_at: string;
   updated_at: string;
-  // Field tambahan dari relation (read-only)
-  product_name: string;
-  product_code: string;
-  product_category_name: string;
-  product_category_code: string;
+  // Field relation dari API
+  Product?: Product | null;
 }
 
 // Interface untuk Parameter Query
@@ -26,34 +26,38 @@ export interface StageParams {
   page?: number;
   paginate?: number;
   search?: string;
-  product_id?: number | string; // Filter berdasarkan Product ID
+  order_by?: string;
+  order?: "asc" | "desc";
+  product_id?: number | string;
 }
 
 // Interface untuk Payload Create
-// Omit field yang auto-generated atau read-only dari relasi
-export type CreateStageRequest = Omit<
-  Stage,
-  | "id"
-  | "created_at"
-  | "updated_at"
-  | "product_name"
-  | "product_code"
-  | "product_category_name"
-  | "product_category_code"
->;
+export interface CreateStageRequest {
+  product_id?: number;
+  stage: string; // String format untuk API
+  range_from: string; // String format untuk API
+  range_to: string; // String format untuk API
+  description?: string;
+  status: string; // "1" or "0"
+}
 
 // Interface untuk Payload Update
 export type UpdateStageRequest = Partial<CreateStageRequest>;
 
-// Interface untuk Response Pagination
-export interface PaginatedResult<T> {
-  data: T[];
+// Interface untuk Pagination Meta
+export interface PaginationMeta {
+  total: number;
+  per_page: number;
   current_page: number;
   last_page: number;
-  per_page: number;
-  total: number;
-  from?: number;
-  to?: number;
+  next_page: number;
+  prev_page: number;
+  data: Stage[];
+}
+
+// Interface untuk Paginated Result
+export interface PaginatedResult {
+  pagination: PaginationMeta;
 }
 
 /** --- Service Class --- */
@@ -64,18 +68,18 @@ class StageService extends BaseApiService {
 
   /**
    * Get All Data dengan Pagination, Search, dan Filter
-   * URL: /master/stages?paginate=10&search=&page=1&product_id=...
+   * URL: /master/stages?paginate=10&search=&page=1&order_by=created_at&order=desc
    */
   async getAll(
     params?: StageParams
-  ): Promise<ApiResponse<PaginatedResult<Stage>>> {
+  ): Promise<ApiResponse<PaginatedResult>> {
     const query = new URLSearchParams();
 
     if (params?.page) query.append("page", String(params.page));
     if (params?.paginate) query.append("paginate", String(params.paginate));
     if (params?.search) query.append("search", params.search);
-
-    // Filter by product_id jika ada
+    if (params?.order_by) query.append("order_by", params.order_by);
+    if (params?.order) query.append("order", params.order);
     if (params?.product_id) {
       query.append("product_id", String(params.product_id));
     }
@@ -85,7 +89,7 @@ class StageService extends BaseApiService {
       ? `${this.resource}?${queryString}`
       : this.resource;
 
-    return this.get<ApiResponse<PaginatedResult<Stage>>>(endpoint);
+    return this.get<ApiResponse<PaginatedResult>>(endpoint);
   }
 
   /**

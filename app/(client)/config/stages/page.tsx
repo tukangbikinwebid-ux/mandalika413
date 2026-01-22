@@ -18,52 +18,61 @@ import {
 } from "lucide-react";
 import { api } from "@/services/api";
 import type { Stage, CreateStageRequest } from "@/services/api/master/stages";
-import type { Product } from "@/services/api/master/product";
 
 export default function StagesPage() {
   // --- State Data ---
   const [data, setData] = useState<Stage[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [paginate] = useState(10);
+  const [error, setError] = useState<string | null>(null);
 
   // --- State Form ---
   const [view, setView] = useState<"list" | "form">("list");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // --- State Custom Dropdown ---
-  const [isProductOpen, setIsProductOpen] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
 
   const defaultForm: CreateStageRequest = {
-    product_id: 0,
-    stage: 1,
-    range_from: 0,
-    range_to: 0,
+    stage: "1",
+    range_from: "0",
+    range_to: "0",
     description: "",
-    status: 1,
+    status: "1",
   };
   const [formData, setFormData] = useState<CreateStageRequest>(defaultForm);
 
   // --- Fetch Data ---
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.stage.getAll({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+      } else {
+        setError(res.message || "Failed to fetch data");
       }
     } catch (error) {
       console.error("Failed to fetch stages", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch stages. Please check your connection or try again later.";
+      setError(errorMessage);
+      setData([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -71,9 +80,15 @@ export default function StagesPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.product.getAll({ paginate: 100 });
+      const res = await api.product.getAll({
+        paginate: 100,
+        order_by: "created_at",
+        order: "desc",
+      });
       if (res.code === 200) {
-        setProducts(res.data.data);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        console.log(paginationData);
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
@@ -99,13 +114,20 @@ export default function StagesPage() {
 
   const prepareEdit = (item: Stage) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
-      product_id: item.product_id,
-      stage: item.stage,
-      range_from: item.range_from,
-      range_to: item.range_to,
-      description: item.description,
-      status: Number(item.status),
+      stage: String(item.stage),
+      range_from: String(item.range_from),
+      range_to: String(item.range_to),
+      description: item.description || "",
+      status: statusValue,
     });
     setView("form");
   };
@@ -118,16 +140,23 @@ export default function StagesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.product_id) {
-      alert("Please select a product");
-      return;
-    }
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure all fields are strings
+      const payload: CreateStageRequest = {
+        stage: String(formData.stage),
+        range_from: String(formData.range_from),
+        range_to: String(formData.range_to),
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.stage.update(editingId, formData);
+        await api.stage.update(editingId, payload);
       } else {
-        await api.stage.create(formData);
+        await api.stage.create(payload);
       }
       setView("list");
       fetchData();
@@ -141,13 +170,7 @@ export default function StagesPage() {
 
   const totalPages = Math.ceil(total / paginate);
 
-  const filteredProducts = products.filter((prod) =>
-    prod.name.toLowerCase().includes(productSearch.toLowerCase())
-  );
 
-  const selectedProduct = products.find(
-    (prod) => prod.id === formData.product_id
-  );
 
   const getStageBadgeColor = (stage: number) => {
     switch (stage) {
@@ -212,6 +235,21 @@ export default function StagesPage() {
                 </div>
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div className="mx-6 md:mx-8 mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm">
+                    ⚠️ Error: {error}
+                  </p>
+                  <button
+                    onClick={fetchData}
+                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
               {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -271,7 +309,7 @@ export default function StagesPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm font-semibold text-gray-700 bg-indigo-100 px-3 py-1 rounded-full">
-                              {item.product_name || "N/A"}
+                              {item.Product?.name || "N/A"}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -298,19 +336,30 @@ export default function StagesPage() {
                           <td className="px-6 py-4">
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
-                                Number(item.status) === 1
+                                item.status === true ||
+                                item.status === 1 ||
+                                item.status === "1" ||
+                                item.status === "true"
                                   ? "bg-green-100 text-green-700"
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
                               <div
                                 className={`w-2 h-2 rounded-full ${
-                                  Number(item.status) === 1
+                                  item.status === true ||
+                                  item.status === 1 ||
+                                  item.status === "1" ||
+                                  item.status === "true"
                                     ? "bg-green-500"
                                     : "bg-gray-400"
                                 }`}
                               />
-                              {Number(item.status) === 1 ? "Active" : "Inactive"}
+                              {item.status === true ||
+                              item.status === 1 ||
+                              item.status === "1" ||
+                              item.status === "true"
+                                ? "Active"
+                                : "Inactive"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -390,72 +439,6 @@ export default function StagesPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
-                {/* Product Dropdown */}
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 block">
-                    Product <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsProductOpen(!isProductOpen)}
-                      className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 text-left flex items-center justify-between"
-                    >
-                      <span className={selectedProduct ? "" : "text-gray-400"}>
-                        {selectedProduct?.name || "Select a product..."}
-                      </span>
-                      <ChevronDown
-                        className={`w-5 h-5 text-gray-400 transition-transform ${
-                          isProductOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-
-                    {isProductOpen && (
-                      <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl max-h-64 overflow-hidden">
-                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
-                          <input
-                            type="text"
-                            placeholder="Search product..."
-                            value={productSearch}
-                            onChange={(e) => setProductSearch(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-400 font-medium"
-                          />
-                        </div>
-                        <div className="overflow-y-auto max-h-48">
-                          {filteredProducts.length === 0 ? (
-                            <div className="px-4 py-6 text-center text-gray-500 text-sm">
-                              No products found
-                            </div>
-                          ) : (
-                            filteredProducts.map((prod) => (
-                              <button
-                                key={prod.id}
-                                type="button"
-                                onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    product_id: prod.id,
-                                  });
-                                  setIsProductOpen(false);
-                                  setProductSearch("");
-                                }}
-                                className="w-full px-4 py-3 text-left hover:bg-orange-50 transition-colors flex items-center justify-between group"
-                              >
-                                <span className="font-medium text-gray-800">
-                                  {prod.name}
-                                </span>
-                                {formData.product_id === prod.id && (
-                                  <Check className="w-5 h-5 text-orange-500" />
-                                )}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 block">
@@ -466,14 +449,14 @@ export default function StagesPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        stage: Number(e.target.value),
+                        stage: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Stage 1 - Performing</option>
-                    <option value={2}>Stage 2 - Under-performing</option>
-                    <option value={3}>Stage 3 - Non-performing</option>
+                    <option value="1">Stage 1 - Performing</option>
+                    <option value="2">Stage 2 - Under-performing</option>
+                    <option value="3">Stage 3 - Non-performing</option>
                   </select>
                 </div>
 
@@ -491,7 +474,7 @@ export default function StagesPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          range_from: parseInt(e.target.value) || 0,
+                          range_from: e.target.value,
                         })
                       }
                       placeholder="e.g. 0"
@@ -511,7 +494,7 @@ export default function StagesPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          range_to: parseInt(e.target.value) || 0,
+                          range_to: e.target.value,
                         })
                       }
                       placeholder="e.g. 30"
@@ -543,17 +526,17 @@ export default function StagesPage() {
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

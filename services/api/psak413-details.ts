@@ -1,7 +1,7 @@
 import BaseApiService from "./base";
 import type { ApiResponse } from "./base";
 import type { PSAK413Detail, PSAK413DetailParams } from "@/lib/types/psak413-details";
-import type { PaginatedResult } from "@/lib/types/psak413-imports";
+import type { NestedPaginatedResult } from "@/lib/types/psak413-imports";
 
 class PSAK413DetailService extends BaseApiService {
   private resource = "psak413/details";
@@ -12,7 +12,7 @@ class PSAK413DetailService extends BaseApiService {
    */
   async getAll(
     params?: PSAK413DetailParams
-  ): Promise<ApiResponse<PaginatedResult<PSAK413Detail>>> {
+  ): Promise<ApiResponse<NestedPaginatedResult<PSAK413Detail>>> {
     const query = new URLSearchParams();
 
     // Default values
@@ -33,7 +33,7 @@ class PSAK413DetailService extends BaseApiService {
       query.append("psak413_import_id", params.psak413_import_id);
     }
 
-    return this.get<ApiResponse<PaginatedResult<PSAK413Detail>>>(
+    return this.get<ApiResponse<NestedPaginatedResult<PSAK413Detail>>>(
       `${this.resource}?${query.toString()}`
     );
   }

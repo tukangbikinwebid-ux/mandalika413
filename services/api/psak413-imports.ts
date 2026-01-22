@@ -58,7 +58,7 @@ class PSAK413ImportService extends BaseApiService {
     formData.append("file", data.file);
 
     return this.request<ApiResponse<PSAK413Import>>(
-      `${this.resource}/process`,
+      this.resource,
       {
         method: "POST",
         body: formData,

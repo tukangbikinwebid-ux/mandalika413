@@ -17,10 +17,14 @@ import {
   RotateCcw,
   AlertTriangle,
   RefreshCw,
+  Sparkles,
+  Clock,
+  TrendingUp,
+  FileCheck,
+  Zap,
 } from "lucide-react";
-import Swal from "sweetalert2";
 
-// --- Constants for Local Storage (Agar Data Persisten) ---
+// --- Constants for Local Storage ---
 const LS_KEY_IMPORT_ID = "psak413_active_import_id";
 const LS_KEY_FILENAME = "psak413_active_filename";
 
@@ -105,11 +109,15 @@ export default function ProcessPage() {
   // Error Report State
   const [importErrors, setImportErrors] = useState<string | null>(null);
 
+  // Polling state
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
   const [page, setPage] = useState(1);
   const [totalDetails, setTotalDetails] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Refs for logic
+  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef(1);
 
@@ -118,23 +126,33 @@ export default function ProcessPage() {
     pageRef.current = page;
   }, [page]);
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, []);
+
   // --- 1. Fetch Details from Backend (Server Mode) ---
   const fetchDetailsFromServer = useCallback(
-    async (importId: string, pageNum: number) => {
+    async (importId: number, pageNum: number) => {
       setLoadingDetails(true);
 
       try {
         const res = await api.psak413Detail.getAll({
-          psak413_import_id: importId,
+          psak413_import_id: String(importId),
           page: pageNum,
           paginate: 10,
-          orderBy: "psak413_import_details.id",
-          order: "asc",
+          orderBy: "psak413_import_details.updated_at",
+          order: "desc",
         });
 
         if (res.code === 200) {
+          const paginationData = res.data.pagination;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mapped: TableRow[] = res.data.data.map((d: any) => ({
+          const mapped: TableRow[] = paginationData.data.map((d: any) => ({
             id: d.id,
             cab: d.cab,
             no_rekening: d.no_rekening,
@@ -160,9 +178,9 @@ export default function ProcessPage() {
           }));
 
           setTableData(mapped);
-          setTotalDetails(res.data.total);
-          setTotalPages(res.data.last_page);
-          setPage(res.data.current_page);
+          setTotalDetails(paginationData.total);
+          setTotalPages(paginationData.last_page);
+          setPage(paginationData.current_page);
           setDataMode("server");
         }
       } catch (error) {
@@ -174,7 +192,48 @@ export default function ProcessPage() {
     []
   );
 
-  // --- 2. INIT: Restore State from LocalStorage on Mount ---
+  // --- 2. Poll Import Status every 5 seconds ---
+  const startPolling = useCallback(
+    (importId: number) => {
+      setIsPolling(true);
+
+      pollingRef.current = setInterval(async () => {
+        try {
+          const res = await api.psak413Import.getById(String(importId));
+
+          if (res.code === 200 && res.data) {
+            const data = res.data;
+            setCurrentImport(data);
+            setProgress(data.progress || 0);
+
+            if (data.errors) {
+              setImportErrors(data.errors);
+            }
+
+            // Check if processing is complete (progress = 100)
+            if (data.progress >= 100) {
+              // Stop polling
+              if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+              }
+              setIsPolling(false);
+              setRunning(false);
+              setShowSuccess(true);
+
+              // Fetch details table
+              await fetchDetailsFromServer(importId, 1);
+            }
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+        }
+      }, 5000); // Poll every 5 seconds
+    },
+    [fetchDetailsFromServer]
+  );
+
+  // --- 3. INIT: Restore State from LocalStorage on Mount ---
   useEffect(() => {
     const initPage = async () => {
       const savedId = localStorage.getItem(LS_KEY_IMPORT_ID);
@@ -193,7 +252,13 @@ export default function ProcessPage() {
             setProgress(data.progress || 100);
             if (data.errors) setImportErrors(data.errors);
 
-            await fetchDetailsFromServer(savedId, 1);
+            // If still processing, start polling
+            if (data.progress < 100) {
+              setRunning(true);
+              startPolling(data.id);
+            } else {
+              await fetchDetailsFromServer(data.id, 1);
+            }
           } else {
             localStorage.removeItem(LS_KEY_IMPORT_ID);
             localStorage.removeItem(LS_KEY_FILENAME);
@@ -210,37 +275,29 @@ export default function ProcessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- 3. Handle Manual Refresh ---
+  // --- 4. Handle Manual Refresh ---
   const handleRefresh = () => {
     if (dataMode === "server" && currentImport?.id) {
-      fetchDetailsFromServer(String(currentImport.id), page);
+      fetchDetailsFromServer(currentImport.id, page);
     }
   };
 
-  // --- 4. Handle Local File Preview (UPDATED UX) ---
+  // --- 5. Handle Local File Preview ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // STEP 1: Update UI Langsung (Nama File Muncul Dulu)
     setLocalFileName(file.name);
     setFileToUpload(file);
-
-    // Switch ke mode preview dan reset data lama
     setDataMode("preview");
     setTableData([]);
     setCurrentImport(null);
     setImportErrors(null);
-
-    // Tampilkan loading di table
     setLoadingDetails(true);
 
-    // Jika memilih file baru, kita hapus session ID lama di storage
-    // Agar jika di-refresh, tidak kembali ke data server yang lama
     localStorage.removeItem(LS_KEY_IMPORT_ID);
     localStorage.removeItem(LS_KEY_FILENAME);
 
-    // STEP 2: Baca Data dengan Delay agar UI render dulu
     setTimeout(() => {
       const reader = new FileReader();
       reader.onload = (evt) => {
@@ -287,13 +344,13 @@ export default function ProcessPage() {
         setTableData(mappedData);
         setTotalDetails(rawData.length);
         setTotalPages(Math.ceil(rawData.length / 10));
-        setLoadingDetails(false); // Selesai loading
+        setLoadingDetails(false);
       };
       reader.readAsBinaryString(file);
-    }, 500); // Delay 500ms agar user melihat transisi "File Selected" -> "Loading Table" -> "Data Muncul"
+    }, 500);
   };
 
-  // --- 5. Upload & Trigger Backend Process ---
+  // --- 6. Upload & Trigger Backend Process ---
   const handleConfirmProcess = async () => {
     setConfirmOpen(false);
     const file = fileToUpload;
@@ -304,7 +361,6 @@ export default function ProcessPage() {
 
     setRunning(true);
     setProgress(0);
-    // Kita kosongkan table saat mulai proses upload agar terlihat sedang bekerja
     setTableData([]);
     setDataMode("server");
     setImportErrors(null);
@@ -317,29 +373,19 @@ export default function ProcessPage() {
 
       const res = await api.psak413Import.create(payload);
 
-      if (res.code === 200 && res.data) {
-        // SIMPAN ke LocalStorage hanya setelah sukses Upload
+      if ((res.code === 200 || res.code === 201) && res.data) {
+        // Save to LocalStorage after successful upload
         localStorage.setItem(LS_KEY_IMPORT_ID, String(res.data.id));
         localStorage.setItem(LS_KEY_FILENAME, actualFile.name);
 
         setCurrentImport(res.data);
-        setRunning(false);
-        setProgress(100);
-        setShowSuccess(true);
+        setProgress(res.data.progress || 0);
 
-        // Fetch Data Table
-        setTimeout(() => {
-          fetchDetailsFromServer(res.data.id, 1);
-        }, 1500);
+        // Start polling to check progress
+        startPolling(res.data.id);
       }
     } catch (error) {
       console.error("Upload failed", error);
-      Swal.fire({
-        icon: "error",
-        title: "Gagal",
-        text: "Gagal mengupload file ke server.",
-        confirmButtonColor: "#f97316",
-      });
       setRunning(false);
       setProgress(0);
     }
@@ -352,11 +398,17 @@ export default function ProcessPage() {
       e.stopPropagation();
     }
 
-    // HAPUS LocalStorage hanya saat tombol Reset diklik
+    // Stop polling if running
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
     localStorage.removeItem(LS_KEY_IMPORT_ID);
     localStorage.removeItem(LS_KEY_FILENAME);
 
     setRunning(false);
+    setIsPolling(false);
     setProgress(0);
     setHovered(false);
     setShowSuccess(false);
@@ -387,42 +439,50 @@ export default function ProcessPage() {
   };
 
   const canStart = !running && !!fileToUpload;
-  const hasData = !!currentImport;
+  const hasData = !!currentImport && currentImport.progress >= 100;
 
   const errorLogs = importErrors
     ? importErrors.split("\n").filter((line) => line.trim() !== "")
     : [];
 
   return (
-    <div className="min-h-[100dvh] bg-white p-4 md:p-8 font-sans text-slate-800">
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/50 p-4 md:p-8 font-sans text-slate-800">
+      {/* Header with Animation */}
+      <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between animate-in fade-in slide-in-from-top-4 duration-500">
         <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 place-content-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-3xl shadow-lg shadow-yellow-200">
-            📊
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl blur-lg opacity-50 animate-pulse" />
+            <div className="relative grid h-16 w-16 place-content-center rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-3xl shadow-lg">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 flex items-center gap-2">
               Penurunan Nilai PSAK 413
+              {running && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full font-bold animate-pulse">
+                  <Zap className="w-3 h-3" /> Processing
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-600">
-              Upload Excel Lengkap &rarr; Hitung CKPN
+              Upload Excel/CSV &rarr; Kalkulasi CKPN Otomatis
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full lg:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full lg:w-auto animate-in fade-in slide-in-from-right-4 duration-500 delay-100">
           <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={() => handleDownloadTemplate("excel")}
-              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all whitespace-nowrap"
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-xl bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 text-xs font-bold transition-all duration-200 hover:scale-105 hover:shadow-md whitespace-nowrap"
             >
               <FileSpreadsheet className="w-4 h-4" /> Template .xlsx
             </button>
             <button
               onClick={() => handleDownloadTemplate("csv")}
-              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-bold transition-all whitespace-nowrap"
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1 px-3 py-2 rounded-xl bg-blue-50 border-2 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300 text-xs font-bold transition-all duration-200 hover:scale-105 hover:shadow-md whitespace-nowrap"
             >
               <FileType className="w-4 h-4" /> Template .csv
             </button>
@@ -440,15 +500,16 @@ export default function ProcessPage() {
           {!localFileName ? (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex justify-center items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm w-full sm:w-auto"
+              className="flex justify-center items-center gap-2 px-5 py-3 rounded-xl font-semibold bg-white border-2 border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-orange-400 hover:text-orange-600 transition-all duration-300 shadow-sm w-full sm:w-auto group"
             >
-              <UploadCloud className="w-5 h-5" /> <span>Pilih File</span>
+              <UploadCloud className="w-5 h-5 group-hover:animate-bounce" />{" "}
+              <span>Pilih File</span>
             </button>
           ) : (
-            <div className="flex items-center justify-between sm:justify-start gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200 w-full sm:w-auto">
+            <div className="flex items-center justify-between sm:justify-start gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2 rounded-xl border-2 border-blue-200 w-full sm:w-auto animate-in zoom-in duration-300">
               <div className="flex flex-col overflow-hidden">
-                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
-                  File Terpilih
+                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <FileCheck className="w-3 h-3" /> File Terpilih
                 </span>
                 <span className="text-sm font-semibold text-blue-900 truncate max-w-[150px] sm:max-w-[200px]">
                   {localFileName}
@@ -457,7 +518,7 @@ export default function ProcessPage() {
               {!running && !hasData && (
                 <button
                   onClick={(e) => resetAll(e)}
-                  className="p-1 flex-shrink-0 rounded-full hover:bg-blue-100 text-blue-400 hover:text-red-500 transition-colors"
+                  className="p-1.5 flex-shrink-0 rounded-full hover:bg-red-100 text-blue-400 hover:text-red-500 transition-all duration-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -468,7 +529,7 @@ export default function ProcessPage() {
           {hasData && (
             <button
               onClick={(e) => resetAll(e)}
-              className="relative justify-center px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 shadow-md transition-all flex items-center gap-2 w-full sm:w-auto"
+              className="relative justify-center px-6 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 shadow-md transition-all duration-200 flex items-center gap-2 w-full sm:w-auto hover:scale-105"
             >
               <RotateCcw className="w-5 h-5" /> Reset
             </button>
@@ -481,14 +542,33 @@ export default function ProcessPage() {
               onMouseLeave={() => setHovered(false)}
               disabled={!canStart}
               className={[
-                "relative justify-center px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 w-full sm:w-auto",
+                "relative justify-center px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all duration-300 flex items-center gap-2 w-full sm:w-auto overflow-hidden",
                 !canStart
                   ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-orange-200",
+                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105 hover:shadow-xl hover:shadow-orange-300/50",
               ].join(" ")}
             >
-              {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-              {hovered && !running ? "Jalankan Proses ⚡" : "Mulai Proses ▶"}
+              {running ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Memproses...</span>
+                </>
+              ) : (
+                <>
+                  {hovered ? (
+                    <>
+                      <Zap className="w-5 h-5 animate-pulse" /> Jalankan Proses
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="w-5 h-5" /> Mulai Proses
+                    </>
+                  )}
+                </>
+              )}
+              {!canStart ? null : (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full hover:translate-x-full transition-transform duration-700" />
+              )}
             </button>
           )}
         </div>
@@ -496,33 +576,48 @@ export default function ProcessPage() {
 
       <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-4">
         {/* Sidebar Status */}
-        <div className="col-span-1 space-y-4 md:space-y-6">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
-              Status Proses
+        <div className="col-span-1 space-y-4 md:space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 delay-200">
+          <div className="rounded-2xl border-2 border-orange-100 bg-white p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Status Proses
             </h3>
-            <div className="flex items-end gap-2 mb-2">
+            <div className="flex items-end gap-2 mb-3">
               <span
-                className={`text-4xl font-black ${
-                  running ? "text-amber-500" : "text-gray-900"
+                className={`text-5xl font-black transition-colors duration-300 ${
+                  running
+                    ? "text-amber-500"
+                    : progress >= 100
+                    ? "text-emerald-500"
+                    : "text-gray-900"
                 }`}
               >
                 {progress}%
               </span>
-              <span className="text-sm font-medium text-gray-500 mb-1.5">
-                Completed
+              <span className="text-sm font-medium text-gray-500 mb-2">
+                {running ? "Processing" : progress >= 100 ? "Complete" : "Ready"}
               </span>
             </div>
 
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden shadow-inner">
               <div
-                className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-300"
+                className={`h-full transition-all duration-500 ease-out rounded-full ${
+                  progress >= 100
+                    ? "bg-gradient-to-r from-emerald-400 to-green-500"
+                    : "bg-gradient-to-r from-yellow-400 to-orange-500"
+                }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
 
+            {isPolling && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 font-medium animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Mengecek progress setiap 5 detik...
+              </div>
+            )}
+
             <div className="mt-6 space-y-3">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm p-2 rounded-lg bg-gray-50">
                 <span className="text-gray-500">Mode</span>
                 <span
                   className={`font-bold uppercase ${
@@ -531,42 +626,42 @@ export default function ProcessPage() {
                       : "text-emerald-600"
                   }`}
                 >
-                  {dataMode}
+                  {dataMode === "preview" ? "📄 Preview" : "☁️ Server"}
                 </span>
               </div>
 
               {dataMode === "server" && currentImport && (
                 <>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm p-2 rounded-lg bg-gray-50">
                     <span className="text-gray-500">Total Rows</span>
                     <span className="font-bold text-gray-900">
                       {currentImport.rows}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Sukses</span>
-                    <span className="font-bold text-emerald-600">
+                  <div className="flex justify-between text-sm p-2 rounded-lg bg-emerald-50">
+                    <span className="text-emerald-600">✓ Sukses</span>
+                    <span className="font-bold text-emerald-700">
                       {currentImport.successful_rows}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Gagal</span>
+                  <div className="flex justify-between text-sm p-2 rounded-lg bg-red-50">
+                    <span className="text-red-500">✕ Gagal</span>
                     <span
                       className={`font-bold ${
                         currentImport.failed_rows > 0
                           ? "text-red-600"
-                          : "text-gray-900"
+                          : "text-gray-400"
                       }`}
                     >
                       {currentImport.failed_rows}
                     </span>
                   </div>
 
-                  <div className="pt-3 border-t border-gray-100 mt-2">
-                    <p className="text-xs text-gray-400 mb-1">
+                  <div className="pt-4 border-t-2 border-gray-100 mt-4">
+                    <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-bold">
                       Total Amount (PSAK 413)
                     </p>
-                    <p className="text-lg font-black text-blue-700 truncate">
+                    <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 truncate">
                       {formatCurrency(currentImport.total_psak413_amount || 0)}
                     </p>
                   </div>
@@ -574,9 +669,9 @@ export default function ProcessPage() {
               )}
 
               {dataMode === "preview" && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Est. Rows</span>
-                  <span className="font-bold text-gray-900">
+                <div className="flex justify-between text-sm p-2 rounded-lg bg-amber-50">
+                  <span className="text-amber-600">Est. Rows</span>
+                  <span className="font-bold text-amber-700">
                     {totalDetails}
                   </span>
                 </div>
@@ -586,7 +681,7 @@ export default function ProcessPage() {
 
           {/* Error Log Container */}
           {errorLogs.length > 0 && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm max-h-[400px] overflow-y-auto">
+            <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50 p-4 shadow-lg max-h-[400px] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
               <div className="flex items-center gap-2 mb-3 text-red-700">
                 <AlertTriangle className="w-5 h-5" />
                 <h3 className="font-bold text-sm">
@@ -597,7 +692,7 @@ export default function ProcessPage() {
                 {errorLogs.map((log, idx) => (
                   <div
                     key={idx}
-                    className="text-xs bg-white p-2 rounded border border-red-100 text-red-600 font-mono break-words"
+                    className="text-xs bg-white p-3 rounded-lg border border-red-100 text-red-600 font-mono break-words shadow-sm"
                   >
                     {log}
                   </div>
@@ -608,26 +703,25 @@ export default function ProcessPage() {
         </div>
 
         {/* Table */}
-        <div className="col-span-1 lg:col-span-3">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col h-[500px] lg:h-[75vh]">
-            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-gray-50/50 rounded-t-2xl">
-              <div className="flex items-center gap-2">
+        <div className="col-span-1 lg:col-span-3 animate-in fade-in slide-in-from-right-4 duration-500 delay-300">
+          <div className="rounded-2xl border-2 border-gray-200 bg-white shadow-lg flex flex-col h-[500px] lg:h-[75vh] overflow-hidden">
+            <div className="p-4 border-b-2 border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-gradient-to-r from-gray-50 to-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
                 <h2 className="font-bold text-gray-800 text-sm sm:text-base">
                   {dataMode === "preview"
-                    ? "Preview Data Upload"
-                    : "Hasil Perhitungan PSAK 413"}
+                    ? "📋 Preview Data Upload"
+                    : "📊 Hasil Perhitungan PSAK 413"}
                 </h2>
-                <span className="bg-gray-200 text-gray-600 text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold">
+                <span className="bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 text-[10px] sm:text-xs px-3 py-1 rounded-full font-bold border border-orange-200">
                   {totalDetails} Rows
                 </span>
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
-                {/* --- TOMBOL REFRESH MANUAL --- */}
                 {dataMode === "server" && (
                   <button
                     onClick={handleRefresh}
                     disabled={loadingDetails}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 border-2 border-blue-200 text-blue-600 hover:bg-blue-100 hover:border-blue-300 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 hover:scale-105"
                     title="Muat Ulang Data"
                   >
                     <RefreshCw
@@ -642,17 +736,17 @@ export default function ProcessPage() {
                 <button
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1 || loadingDetails}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all duration-200"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-medium text-gray-600 min-w-[80px] text-center">
+                <span className="text-xs font-medium text-gray-600 min-w-[80px] text-center bg-gray-50 px-2 py-1 rounded-lg">
                   Page {page} / {totalPages || 1}
                 </span>
                 <button
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages || loadingDetails}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-all duration-200"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -661,62 +755,44 @@ export default function ProcessPage() {
 
             <div className="flex-1 overflow-auto w-full relative">
               <table className="min-w-max text-xs text-left text-gray-600">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-100 font-bold sticky top-0 z-10 shadow-sm">
+                <thead className="text-xs text-gray-700 uppercase bg-gradient-to-r from-gray-100 to-gray-50 font-bold sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Status
+                    <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-x border-blue-200 sticky left-0 z-20">
+                      💰 PSAK 413
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-blue-50 text-blue-800 border-x border-blue-100 sticky left-0 z-20">
-                      PSAK 413 (Hasil)
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Kode Cab
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      No Rekening
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Nama Nasabah
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Produk
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Akad
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Segment
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Stage
-                    </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap">Kode Cab</th>
+                    <th className="px-4 py-3 whitespace-nowrap">No Rekening</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Nama Nasabah</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Produk</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Akad</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Segment</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       Plafond
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       Pokok Sisa
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       Total OS
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       Total Past Due
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       Day Past Due
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       EAD
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       PD
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap text-right bg-gray-100">
+                    <th className="px-4 py-3 whitespace-nowrap text-right">
                       LGD
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap bg-gray-100">
-                      Maturity
-                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap">Maturity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -726,8 +802,15 @@ export default function ProcessPage() {
                         colSpan={18}
                         className="px-6 py-32 text-center text-gray-400"
                       >
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-                        <p className="mt-2 text-xs">Mengambil data...</p>
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="relative">
+                            <div className="w-16 h-16 border-4 border-orange-200 rounded-full animate-spin border-t-orange-500" />
+                            <Loader2 className="w-8 h-8 text-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                          </div>
+                          <p className="text-sm font-medium">
+                            Mengambil data...
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : tableData.length === 0 ? (
@@ -736,19 +819,29 @@ export default function ProcessPage() {
                         colSpan={18}
                         className="px-6 py-32 text-center text-gray-400"
                       >
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-3">
                           {running ? (
                             <div className="flex flex-col items-center">
-                              <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-2" />
-                              <span>Sedang memproses...</span>
-                              <span className="text-xs text-gray-400">
-                                Data akan muncul otomatis setelah selesai 100%
+                              <div className="relative mb-4">
+                                <div className="w-20 h-20 border-4 border-amber-200 rounded-full animate-spin border-t-amber-500" />
+                                <Zap className="w-10 h-10 text-amber-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                              </div>
+                              <span className="text-lg font-bold text-gray-700">
+                                Sedang memproses...
+                              </span>
+                              <span className="text-xs text-gray-400 mt-1">
+                                Progress: {progress}% | Mengecek setiap 5 detik
                               </span>
                             </div>
                           ) : (
                             <>
-                              <AlertCircle className="w-10 h-10 text-gray-300" />
-                              <span>Belum ada data untuk ditampilkan</span>
+                              <AlertCircle className="w-16 h-16 text-gray-300" />
+                              <span className="text-lg font-medium">
+                                Belum ada data
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                Upload file untuk memulai
+                              </span>
                             </>
                           )}
                         </div>
@@ -758,74 +851,99 @@ export default function ProcessPage() {
                     tableData.map((row, idx) => (
                       <tr
                         key={row.id || idx}
-                        className="hover:bg-yellow-50 transition-colors animate-in fade-in"
+                        className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-all duration-200 group"
+                        style={{
+                          animationDelay: `${idx * 30}ms`,
+                        }}
                       >
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           <span
-                            className={`inline-block w-2.5 h-2.5 rounded-full ${
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-300 ${
                               row.status === "Done"
-                                ? "bg-emerald-500"
+                                ? "bg-emerald-100 text-emerald-600"
                                 : row.status === "Processing"
-                                ? "bg-amber-400 animate-pulse"
+                                ? "bg-amber-100 text-amber-600 animate-pulse"
                                 : row.status === "Error"
-                                ? "bg-red-500"
-                                : "bg-gray-300"
+                                ? "bg-red-100 text-red-600"
+                                : "bg-gray-100 text-gray-400"
                             }`}
-                          ></span>
+                          >
+                            {row.status === "Done" ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : row.status === "Processing" ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : row.status === "Error" ? (
+                              <X className="w-4 h-4" />
+                            ) : (
+                              <Clock className="w-4 h-4" />
+                            )}
+                          </span>
                         </td>
-                        <td className="px-4 py-2 font-bold text-blue-700 bg-blue-50/50 border-x border-blue-50 text-right sticky left-0 z-10">
+                        <td className="px-4 py-3 font-bold text-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 border-x border-blue-100 text-right sticky left-0 z-10">
                           {dataMode === "server"
                             ? formatCurrency(row.psak413_amount)
                             : "-"}
                         </td>
-                        <td className="px-4 py-2 text-center">{row.cab}</td>
-                        <td className="px-4 py-2 font-mono text-gray-500">
+                        <td className="px-4 py-3 text-center font-mono">
+                          {row.cab}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-gray-500">
                           {row.no_rekening}
                         </td>
-                        <td className="px-4 py-2 font-medium text-gray-900 truncate max-w-[200px]">
+                        <td className="px-4 py-3 font-medium text-gray-900 truncate max-w-[200px]">
                           {row.nama_nasabah}
                         </td>
-                        <td className="px-4 py-2 truncate max-w-[150px]">
+                        <td className="px-4 py-3 truncate max-w-[150px]">
                           {row.product_code}
                         </td>
-                        <td className="px-4 py-2">{row.akad}</td>
-                        <td className="px-4 py-2">
-                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">
+                        <td className="px-4 py-3">{row.akad}</td>
+                        <td className="px-4 py-3">
+                          <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded-lg text-xs font-medium">
                             {row.segment || "-"}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-center font-bold">
-                          {row.stage}
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                              row.stage === 1
+                                ? "bg-green-100 text-green-700"
+                                : row.stage === 2
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {row.stage}
+                          </span>
                         </td>
-                        <td className="px-4 py-2 text-right text-gray-500">
+                        <td className="px-4 py-3 text-right text-gray-500">
                           {formatCurrency(row.plafond)}
                         </td>
-                        <td className="px-4 py-2 text-right">
+                        <td className="px-4 py-3 text-right">
                           {formatCurrency(row.os_pokok)}
                         </td>
-                        <td className="px-4 py-2 text-right font-medium">
+                        <td className="px-4 py-3 text-right font-medium">
                           {formatCurrency(row.os_total)}
                         </td>
-                        <td className="px-4 py-2 text-right text-red-600">
+                        <td className="px-4 py-3 text-right text-red-600">
                           {formatCurrency(row.past_due_total)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono">
+                        <td className="px-4 py-3 text-right font-mono">
                           {row.past_due_day}
                         </td>
-                        <td className="px-4 py-2 text-right font-bold text-gray-800">
+                        <td className="px-4 py-3 text-right font-bold text-gray-800">
                           {formatCurrency(row.ead)}
                         </td>
-                        <td className="px-4 py-2 text-right">
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                        <td className="px-4 py-3 text-right">
+                          <span className="bg-gray-100 px-2 py-1 rounded-lg text-gray-600 font-mono text-xs">
                             {formatPercent(row.pd)}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-right">
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                        <td className="px-4 py-3 text-right">
+                          <span className="bg-gray-100 px-2 py-1 rounded-lg text-gray-600 font-mono text-xs">
                             {formatPercent(row.lgd)}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-gray-500">
+                        <td className="px-4 py-3 text-gray-500">
                           {formatDate(row.maturity_date)}
                         </td>
                       </tr>
@@ -840,22 +958,29 @@ export default function ProcessPage() {
 
       {/* Confirmation Modal */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-bold">Konfirmasi</h3>
-            <p className="text-sm text-gray-600 my-4">
-              Upload dan proses file <b>{localFileName}</b>?
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 border-2 border-orange-100 animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <UploadCloud className="w-8 h-8 text-orange-600" />
+            </div>
+            <h3 className="text-xl font-black text-center text-gray-900 mb-2">
+              Konfirmasi Upload
+            </h3>
+            <p className="text-sm text-gray-600 text-center mb-6">
+              Upload dan proses file{" "}
+              <span className="font-bold text-orange-600">{localFileName}</span>
+              ?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="flex-1 px-4 py-2 rounded-xl border font-bold text-gray-600"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-all duration-200"
               >
                 Batal
               </button>
               <button
                 onClick={handleConfirmProcess}
-                className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600"
+                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold hover:shadow-lg hover:shadow-orange-300/50 transition-all duration-200 hover:scale-105"
               >
                 Ya, Proses
               </button>
@@ -866,12 +991,15 @@ export default function ProcessPage() {
 
       {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 text-center border-2 border-gray-100 animate-in zoom-in-95 duration-300">
             {currentImport && currentImport.failed_rows > 0 ? (
               <>
-                <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <AlertTriangle className="w-10 h-10" />
+                <div className="relative w-24 h-24 mx-auto mb-6">
+                  <div className="absolute inset-0 bg-orange-200 rounded-full animate-ping opacity-30" />
+                  <div className="relative w-24 h-24 bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-12 h-12" />
+                  </div>
                 </div>
                 <h2 className="text-2xl font-black mb-2 text-gray-800">
                   Selesai dengan Catatan
@@ -889,21 +1017,34 @@ export default function ProcessPage() {
               </>
             ) : (
               <>
-                <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle className="w-10 h-10" />
+                <div className="relative w-24 h-24 mx-auto mb-6">
+                  <div className="absolute inset-0 bg-emerald-200 rounded-full animate-ping opacity-30" />
+                  <div className="relative w-24 h-24 bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-600 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-12 h-12" />
+                  </div>
                 </div>
                 <h2 className="text-2xl font-black mb-2 text-gray-800">
-                  Selesai!
+                  🎉 Selesai!
                 </h2>
-                <p className="text-gray-600 mb-8">
+                <p className="text-gray-600 mb-4">
                   Semua data berhasil diproses dan dihitung.
                 </p>
+                {currentImport && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 mb-6 border-2 border-blue-100">
+                    <p className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-1">
+                      Total PSAK 413
+                    </p>
+                    <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+                      {formatCurrency(currentImport.total_psak413_amount || 0)}
+                    </p>
+                  </div>
+                )}
               </>
             )}
 
             <button
               onClick={() => setShowSuccess(false)}
-              className="px-8 py-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black transition-all"
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 text-white font-bold hover:shadow-xl transition-all duration-200 hover:scale-105"
             >
               Tutup & Lihat Data
             </button>
@@ -912,4 +1053,4 @@ export default function ProcessPage() {
       )}
     </div>
   );
-} 
+}

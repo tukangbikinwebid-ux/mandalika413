@@ -6,17 +6,27 @@ import { extractRoleNames } from "./role-utils"
 type LoginApi = {
   code: number;
   message: string;
-  data: { token: string; token_type?: string };
-};
-type MeApi = {
-  code: number;
-  message: string;
   data: {
-    id: number | string;
-    name: string | null;
-    email: string | null;
-    roles?: Array<{ id: number; name: string } | string>;
-    [k: string]: unknown;
+    token: string;
+    token_type?: string;
+    user: {
+      id: number | string;
+      Name: string;
+      Email: string;
+      Password?: string;
+      RoleUser?: unknown;
+      Roles: Array<{
+        id: number;
+        Name: string;
+        created_at?: string;
+        updated_at?: string;
+        RolePermissions?: unknown;
+        Permissions?: unknown;
+      }>;
+      created_at?: string;
+      updated_at?: string;
+      [k: string]: unknown;
+    };
   };
 };
 
@@ -40,46 +50,52 @@ export const authOptions: AuthOptions = {
       authorize: async (credentials) => {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 1) LOGIN → token
-        const resLogin = await fetch(`${API}login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: credentials.email,
-            password: credentials.password,
-          }),
-        });
+        try {
+          // 1) LOGIN → token + user data
+          const resLogin = await fetch(`${API}auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
+          });
 
-        if (!resLogin.ok) return null;
-        const loginJson = (await resLogin.json()) as LoginApi;
-        const accessToken = loginJson?.data?.token;
-        if (!accessToken) return null;
+          if (!resLogin.ok) {
+            const errorData = await resLogin.json().catch(() => null);
+            console.error("Login failed:", errorData);
+            return null;
+          }
 
-        // 2) ME → profil + roles
-        const resMe = await fetch(`${API}me`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
-        });
+          const loginJson = (await resLogin.json()) as LoginApi;
+          
+          // Check response code
+          if (loginJson.code !== 200 || !loginJson.data?.token) {
+            console.error("Invalid login response:", loginJson);
+            return null;
+          }
 
-        if (!resMe.ok) return null;
-        const meJson = (await resMe.json()) as MeApi;
-        const me = meJson?.data;
-        if (!me) return null;
+          const accessToken = loginJson.data.token;
+          const userData = loginJson.data.user;
 
-        const roles = extractRoleNames(me.roles);
+          // Extract user data from login response
+          const name = userData.Name || null;
+          const email = userData.Email || null;
+          const rolesData = userData.Roles || [];
 
-        // 3) return user ke NextAuth
-        return {
-          id: String(me.id),
-          name: me.name ?? null,
-          email: me.email ?? null,
-          roles,
-          token: accessToken,
-        };
+          const roles = extractRoleNames(rolesData);
+
+          return {
+            id: String(userData.id),
+            name,
+            email,
+            roles,
+            token: accessToken,
+          };
+        } catch (error) {
+          console.error("Login error:", error);
+          return null;
+        }
       },
     }),
   ],
@@ -97,43 +113,13 @@ export const authOptions: AuthOptions = {
     },
 
     async session({ session, token }) {
-      // Seed dari JWT
+      // Get user data from JWT token (set during login)
       if (session.user) {
         session.user.id = (token.id as string) ?? "";
         session.user.name = (token.name as string) ?? null;
         session.user.email = (token.email as string) ?? null;
         session.user.roles = (token.roles as string[]) ?? [];
         session.accessToken = (token.accessToken as string) ?? undefined;
-      }
-
-      // Sinkronkan dengan /me supaya role & user selalu up-to-date
-      if (session.accessToken) {
-        try {
-          const resMe = await fetch(`${API}me`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.accessToken}`,
-            },
-            cache: "no-store",
-          });
-
-          if (resMe.ok) {
-            const meJson = (await resMe.json()) as MeApi;
-            const me = meJson?.data;
-            if (me) {
-              session.user.id = String(me.id);
-              session.user.name = me.name ?? null;
-              session.user.email = me.email ?? null;
-              session.user.roles = extractRoleNames(me.roles);
-              // opsional: kalau backend kirim token baru di /me, bisa diupdate di sini
-            }
-          } else if (resMe.status === 401) {
-            // token invalid/expired → biarkan client melakukan signOut
-          }
-        } catch {
-          // swallow error agar tidak ngebreak render
-        }
       }
 
       return session;

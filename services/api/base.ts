@@ -66,17 +66,33 @@ class BaseApiService {
     };
 
     try {
+      // Log URL in development
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[API Request] ${options.method || "GET"} ${url}`);
+      }
+
       const response = await fetch(url, config);
 
       if (!response.ok) {
         // Handle token expired (opsional)
         if (response.status === 401) {
           console.error("Unauthorized: Token kosong atau expired.");
+          throw new Error("Unauthorized: Please login again.");
+        }
+
+        if (response.status === 404) {
+          console.error(`Not Found: ${url}`);
+          throw new Error(`API endpoint not found: ${endpoint}`);
+        }
+
+        if (response.status >= 500) {
+          console.error(`Server Error: ${url}`);
+          throw new Error("Server error. Please try again later.");
         }
 
         const errorData: ApiError = await response.json().catch(() => ({
           code: response.status,
-          message: "An error occurred",
+          message: `HTTP ${response.status}: ${response.statusText}`,
         }));
         throw new Error(errorData.message || "Request failed");
       }
@@ -84,9 +100,13 @@ class BaseApiService {
       return await response.json();
     } catch (error) {
       if (error instanceof Error) {
+        // Log error details in development
+        if (process.env.NODE_ENV === "development") {
+          console.error(`[API Error] ${url}:`, error.message);
+        }
         throw error;
       }
-      throw new Error("Network error");
+      throw new Error("Network error. Please check your connection.");
     }
   }
 

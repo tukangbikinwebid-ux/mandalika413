@@ -28,6 +28,7 @@ export default function ProductCategoriesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [paginate] = useState(10);
+  const [error, setError] = useState<string | null>(null);
 
   // --- State Form ---
   const [view, setView] = useState<"list" | "form">("list");
@@ -37,24 +38,39 @@ export default function ProductCategoriesPage() {
     name: "",
     code: "",
     description: "",
-    status: 1,
+    status: "1",
   });
 
   // --- Fetch Data ---
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.productCategory.getAll({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+      } else {
+        setError(res.message || "Failed to fetch data");
       }
     } catch (error) {
       console.error("Failed to fetch", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch product categories. Please check your connection or try again later.";
+      setError(errorMessage);
+      // Reset data on error
+      setData([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -78,18 +94,26 @@ export default function ProductCategoriesPage() {
 
   const prepareEdit = (item: ProductCategory) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
       name: item.name,
       code: item.code,
-      description: item.description,
-      status: Number(item.status),
+      description: item.description || "",
+      status: statusValue,
     });
     setView("form");
   };
 
   const prepareCreate = () => {
     setEditingId(null);
-    setFormData({ name: "", code: "", description: "", status: 1 });
+    setFormData({ name: "", code: "", description: "", status: "1" });
     setView("form");
   };
 
@@ -97,10 +121,18 @@ export default function ProductCategoriesPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Prepare payload - make description nullable if empty
+      const payload: CreateProductCategoryRequest = {
+        code: formData.code,
+        name: formData.name,
+        status: formData.status,
+        ...(formData.description?.trim() ? { description: formData.description.trim() } : {}),
+      };
+
       if (editingId) {
-        await api.productCategory.update(editingId, formData);
+        await api.productCategory.update(editingId, payload);
       } else {
-        await api.productCategory.create(formData);
+        await api.productCategory.create(payload);
       }
       setView("list");
       fetchData();
@@ -163,6 +195,21 @@ export default function ProductCategoriesPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mx-6 md:mx-8 mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm">
+                    ⚠️ Error: {error}
+                  </p>
+                  <button
+                    onClick={fetchData}
+                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
 
               {/* Table */}
               <div className="overflow-x-auto">
@@ -233,19 +280,30 @@ export default function ProductCategoriesPage() {
                           <td className="px-6 py-4">
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
-                                Number(item.status) === 1
+                                item.status === true ||
+                                item.status === 1 ||
+                                item.status === "1" ||
+                                item.status === "true"
                                   ? "bg-green-100 text-green-700"
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
                               <div
                                 className={`w-2 h-2 rounded-full ${
-                                  Number(item.status) === 1
+                                  item.status === true ||
+                                  item.status === 1 ||
+                                  item.status === "1" ||
+                                  item.status === "true"
                                     ? "bg-green-500"
                                     : "bg-gray-400"
                                 }`}
                               />
-                              {Number(item.status) === 1 ? "Active" : "Inactive"}
+                              {item.status === true ||
+                              item.status === 1 ||
+                              item.status === "1" ||
+                              item.status === "true"
+                                ? "Active"
+                                : "Inactive"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -380,17 +438,17 @@ export default function ProductCategoriesPage() {
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

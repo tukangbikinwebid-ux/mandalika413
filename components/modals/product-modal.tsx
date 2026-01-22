@@ -57,7 +57,7 @@ export default function ProductModal({
     name: "",
     code: "",
     description: "",
-    status: 1,
+    status: "1",
   };
   const [formData, setFormData] = useState<CreateProductRequest>(defaultForm);
 
@@ -69,11 +69,15 @@ export default function ProductModal({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
-        onUpdateTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+        onUpdateTotal(paginationData.total);
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
@@ -86,9 +90,15 @@ export default function ProductModal({
   const fetchCategories = async () => {
     try {
       // Ambil cukup banyak untuk dropdown
-      const res = await api.productCategory.getAll({ paginate: 100 });
+      const res = await api.productCategory.getAll({
+        paginate: 100,
+        order_by: "created_at",
+        order: "desc",
+      });
       if (res.code === 200) {
-        setCategories(res.data.data);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setCategories(paginationData.data);
       }
     } catch (error) {
       console.error("Failed to fetch categories", error);
@@ -128,12 +138,20 @@ export default function ProductModal({
 
   const prepareEdit = (item: Product) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
       product_category_id: item.product_category_id,
       name: item.name,
       code: item.code,
-      description: item.description,
-      status: Number(item.status),
+      description: item.description || "",
+      status: statusValue,
     });
     // Reset dropdown state
     setCategorySearch("");
@@ -157,10 +175,21 @@ export default function ProductModal({
 
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure status is string and description is optional
+      const payload: CreateProductRequest = {
+        product_category_id: formData.product_category_id,
+        name: formData.name,
+        code: formData.code,
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.product.update(editingId, formData);
+        await api.product.update(editingId, payload);
       } else {
-        await api.product.create(formData);
+        await api.product.create(payload);
       }
       setView("list");
       fetchData();
@@ -281,7 +310,7 @@ export default function ProductModal({
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                                {item.product_category_name || "-"}
+                                {item.ProductCategory?.name || "-"}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-600 font-medium max-w-xs truncate">
@@ -510,17 +539,17 @@ export default function ProductModal({
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

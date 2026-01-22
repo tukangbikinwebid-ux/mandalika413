@@ -1,12 +1,11 @@
 export interface PSAK413Import {
-  id: string;
+  id: number;
   name: string;
   filename: string;
   filepath: string;
   mime_type: string;
-  disk: string;
   size: number;
-  imported_at: string | null;
+  ImportedAt?: string | null;
   processed_at: string | null;
   finished_at: string | null;
   rows: number;
@@ -17,6 +16,7 @@ export interface PSAK413Import {
   total_psak413_amount: number;
   created_at: string;
   updated_at: string;
+  Psak413ImportDetails?: unknown | null;
 }
 
 export interface PSAK413ImportParams {
@@ -39,22 +39,38 @@ export interface CreateImportRequest {
   file: File;
 }
 
+// Legacy pagination format
 export interface PaginatedResult<T> {
   current_page: number;
   data: T[];
-  first_page_url: string;
-  from: number | null;
+  first_page_url?: string;
+  from?: number | null;
   last_page: number;
-  last_page_url: string;
-  links: {
+  last_page_url?: string;
+  links?: {
     url: string | null;
     label: string;
     active: boolean;
   }[];
-  next_page_url: string | null;
-  path: string;
+  next_page_url?: string | null;
+  path?: string;
   per_page: number;
-  prev_page_url: string | null;
-  to: number | null;
+  prev_page_url?: string | null;
+  to?: number | null;
   total: number;
+}
+
+// New nested pagination format
+export interface PaginationMeta<T> {
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+  next_page: number;
+  prev_page: number;
+  data: T[];
+}
+
+export interface NestedPaginatedResult<T> {
+  pagination: PaginationMeta<T>;
 }

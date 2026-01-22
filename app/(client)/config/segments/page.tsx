@@ -32,6 +32,7 @@ export default function SegmentsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [paginate] = useState(10);
+  const [error, setError] = useState<string | null>(null);
 
   // --- State Form ---
   const [view, setView] = useState<"list" | "form">("list");
@@ -45,28 +46,42 @@ export default function SegmentsPage() {
   const defaultForm: CreateSegmentRequest = {
     name: "",
     product_id: 0,
-    pd: 0,
-    lgd: 0,
+    pd: "0",
+    lgd: "0",
     description: "",
-    status: 1,
+    status: "1",
   };
   const [formData, setFormData] = useState<CreateSegmentRequest>(defaultForm);
 
   // --- Fetch Data ---
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.segment.getAll({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+      } else {
+        setError(res.message || "Failed to fetch data");
       }
     } catch (error) {
       console.error("Failed to fetch segments", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch segments. Please check your connection or try again later.";
+      setError(errorMessage);
+      setData([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -74,9 +89,15 @@ export default function SegmentsPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.product.getAll({ paginate: 100 });
+      const res = await api.product.getAll({
+        paginate: 100,
+        order_by: "created_at",
+        order: "desc",
+      });
       if (res.code === 200) {
-        setProducts(res.data.data);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setProducts(paginationData.data);
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
@@ -102,13 +123,21 @@ export default function SegmentsPage() {
 
   const prepareEdit = (item: Segment) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
       name: item.name,
       product_id: item.product_id,
-      pd: item.pd,
-      lgd: item.lgd,
-      description: item.description,
-      status: Number(item.status),
+      pd: String(item.pd),
+      lgd: String(item.lgd),
+      description: item.description || "",
+      status: statusValue,
     });
     setView("form");
   };
@@ -127,10 +156,22 @@ export default function SegmentsPage() {
     }
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure pd, lgd, and status are strings
+      const payload: CreateSegmentRequest = {
+        name: formData.name,
+        product_id: formData.product_id,
+        pd: String(formData.pd),
+        lgd: String(formData.lgd),
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.segment.update(editingId, formData);
+        await api.segment.update(editingId, payload);
       } else {
-        await api.segment.create(formData);
+        await api.segment.create(payload);
       }
       setView("list");
       fetchData();
@@ -202,6 +243,21 @@ export default function SegmentsPage() {
                 </div>
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div className="mx-6 md:mx-8 mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm">
+                    ⚠️ Error: {error}
+                  </p>
+                  <button
+                    onClick={fetchData}
+                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
               {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -271,7 +327,7 @@ export default function SegmentsPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm font-semibold text-gray-700 bg-indigo-100 px-3 py-1 rounded-full">
-                              {item.product_name || "N/A"}
+                              {item.Product?.name || "N/A"}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -287,19 +343,30 @@ export default function SegmentsPage() {
                           <td className="px-6 py-4">
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
-                                Number(item.status) === 1
+                                item.status === true ||
+                                item.status === 1 ||
+                                item.status === "1" ||
+                                item.status === "true"
                                   ? "bg-green-100 text-green-700"
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
                               <div
                                 className={`w-2 h-2 rounded-full ${
-                                  Number(item.status) === 1
+                                  item.status === true ||
+                                  item.status === 1 ||
+                                  item.status === "1" ||
+                                  item.status === "true"
                                     ? "bg-green-500"
                                     : "bg-gray-400"
                                 }`}
                               />
-                              {Number(item.status) === 1 ? "Active" : "Inactive"}
+                              {item.status === true ||
+                              item.status === 1 ||
+                              item.status === "1" ||
+                              item.status === "true"
+                                ? "Active"
+                                : "Inactive"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -477,7 +544,7 @@ export default function SegmentsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          pd: parseFloat(e.target.value) || 0,
+                          pd: e.target.value,
                         })
                       }
                       placeholder="e.g. 2.5"
@@ -500,7 +567,7 @@ export default function SegmentsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          lgd: parseFloat(e.target.value) || 0,
+                          lgd: e.target.value,
                         })
                       }
                       placeholder="e.g. 45.0"
@@ -532,17 +599,17 @@ export default function SegmentsPage() {
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

@@ -35,12 +35,24 @@ function LoginPage() {
       });
 
       if (result?.error) {
-        setError("Email atau password salah.");
+        // Try to get more specific error message
+        if (result.error === "CredentialsSignin") {
+          setError("Email atau password salah.");
+        } else {
+          setError(result.error || "Email atau password salah.");
+        }
         return;
       }
 
+      if (!result?.ok) {
+        setError("Gagal masuk. Silakan coba lagi.");
+        return;
+      }
+
+      // Update session to get latest user data
       await update();
 
+      // Redirect to dashboard
       router.replace("/");
       router.refresh();
     } catch (err) {

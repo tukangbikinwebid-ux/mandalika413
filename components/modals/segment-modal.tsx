@@ -55,10 +55,10 @@ export default function SegmentModal({
   const defaultForm: CreateSegmentRequest = {
     name: "",
     product_id: 0,
-    pd: 0,
-    lgd: 0,
+    pd: "0",
+    lgd: "0",
     description: "",
-    status: 1,
+    status: "1",
   };
   const [formData, setFormData] = useState<CreateSegmentRequest>(defaultForm);
 
@@ -70,11 +70,15 @@ export default function SegmentModal({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
-        onUpdateTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+        onUpdateTotal(paginationData.total);
       }
     } catch (error) {
       console.error("Failed to fetch segments", error);
@@ -86,9 +90,15 @@ export default function SegmentModal({
   // --- Fetch Products (Untuk Dropdown) ---
   const fetchProducts = async () => {
     try {
-      const res = await api.product.getAll({ paginate: 100 });
+      const res = await api.product.getAll({
+        paginate: 100,
+        order_by: "created_at",
+        order: "desc",
+      });
       if (res.code === 200) {
-        setProducts(res.data.data);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setProducts(paginationData.data);
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
@@ -126,13 +136,21 @@ export default function SegmentModal({
 
   const prepareEdit = (item: Segment) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
       name: item.name,
       product_id: item.product_id,
-      pd: item.pd,
-      lgd: item.lgd,
-      description: item.description,
-      status: Number(item.status),
+      pd: String(item.pd),
+      lgd: String(item.lgd),
+      description: item.description || "",
+      status: statusValue,
     });
     setProductSearch("");
     setView("form");
@@ -154,10 +172,22 @@ export default function SegmentModal({
 
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure pd, lgd, and status are strings
+      const payload: CreateSegmentRequest = {
+        name: formData.name,
+        product_id: formData.product_id,
+        pd: String(formData.pd),
+        lgd: String(formData.lgd),
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.segment.update(editingId, formData);
+        await api.segment.update(editingId, payload);
       } else {
-        await api.segment.create(formData);
+        await api.segment.create(payload);
       }
       setView("list");
       fetchData();
@@ -276,7 +306,7 @@ export default function SegmentModal({
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                                {item.product_name || "-"}
+                                {item.Product?.name || "-"}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -480,7 +510,7 @@ export default function SegmentModal({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          pd: parseFloat(e.target.value) || 0,
+                          pd: e.target.value,
                         })
                       }
                       placeholder="0.00"
@@ -500,7 +530,7 @@ export default function SegmentModal({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          lgd: parseFloat(e.target.value) || 0,
+                          lgd: e.target.value,
                         })
                       }
                       placeholder="0.00"
@@ -532,17 +562,17 @@ export default function SegmentModal({
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

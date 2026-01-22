@@ -50,12 +50,11 @@ export default function StageModal({
 
   // Form Data Default
   const defaultForm: CreateStageRequest = {
-    product_id: 0,
-    stage: 1,
-    range_from: 0,
-    range_to: 0,
+    stage: "1",
+    range_from: "0",
+    range_to: "0",
     description: "",
-    status: 1,
+    status: "1",
   };
   const [formData, setFormData] = useState<CreateStageRequest>(defaultForm);
 
@@ -67,11 +66,15 @@ export default function StageModal({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
-        onUpdateTotal(res.data.total);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+        onUpdateTotal(paginationData.total);
       }
     } catch (error) {
       console.error("Failed to fetch stages", error);
@@ -83,9 +86,15 @@ export default function StageModal({
   // --- Fetch Products (Untuk Dropdown) ---
   const fetchProducts = async () => {
     try {
-      const res = await api.product.getAll({ paginate: 100 });
+      const res = await api.product.getAll({
+        paginate: 100,
+        order_by: "created_at",
+        order: "desc",
+      });
       if (res.code === 200) {
-        setProducts(res.data.data);
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setProducts(paginationData.data);
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
@@ -123,12 +132,20 @@ export default function StageModal({
 
   const prepareEdit = (item: Stage) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
-      stage: item.stage,
-      range_from: item.range_from,
-      range_to: item.range_to,
-      description: item.description,
-      status: Number(item.status),
+      stage: String(item.stage),
+      range_from: String(item.range_from),
+      range_to: String(item.range_to),
+      description: item.description || "",
+      status: statusValue,
     });
     setProductSearch("");
     setView("form");
@@ -146,10 +163,21 @@ export default function StageModal({
 
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure all fields are strings
+      const payload: CreateStageRequest = {
+        stage: String(formData.stage),
+        range_from: String(formData.range_from),
+        range_to: String(formData.range_to),
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.stage.update(editingId, formData);
+        await api.stage.update(editingId, payload);
       } else {
-        await api.stage.create(formData);
+        await api.stage.create(payload);
       }
       setView("list");
       fetchData();
@@ -444,7 +472,7 @@ export default function StageModal({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          stage: parseInt(e.target.value) || 0,
+                          stage: e.target.value,
                         })
                       }
                       placeholder="e.g. 1"
@@ -463,7 +491,7 @@ export default function StageModal({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          range_from: parseInt(e.target.value) || 0,
+                          range_from: e.target.value,
                         })
                       }
                       placeholder="e.g. 0"
@@ -482,7 +510,7 @@ export default function StageModal({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          range_to: parseInt(e.target.value) || 0,
+                          range_to: e.target.value,
                         })
                       }
                       placeholder="e.g. 30"
@@ -514,17 +542,17 @@ export default function StageModal({
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

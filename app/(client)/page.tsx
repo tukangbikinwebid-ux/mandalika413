@@ -31,7 +31,7 @@ import type {
   EclPerProductData,
   TotalEclPerBranch,
   TotalEclPerAkad,
-} from "@/services/api";
+} from "@/lib/types/dashboard";
 
 ChartJS.register(
   CategoryScale,
@@ -140,12 +140,25 @@ export default function Dashboard() {
           api.dashboard.getEclPerAkad(dateParams),
         ]);
 
-        if (resTotalEcl.code === 200) setTotalEcl(resTotalEcl.data);
-        if (resEclStage.code === 200) setEclByStage(resEclStage.data);
-        if (resEclSegment.code === 200) setEclBySegment(resEclSegment.data);
-        if (resEclProduct.code === 200) setEclByProduct(resEclProduct.data);
-        if (resEclBranch.code === 200) setEclByBranch(resEclBranch.data);
-        if (resEclAkad.code === 200) setEclByAkad(resEclAkad.data);
+        // Extract data from nested response structure
+        if (resTotalEcl.code === 200) {
+          setTotalEcl(resTotalEcl.data.total);
+        }
+        if (resEclStage.code === 200) {
+          setEclByStage(resEclStage.data.ecl_per_stage);
+        }
+        if (resEclSegment.code === 200) {
+          setEclBySegment(resEclSegment.data.ecl_per_segment);
+        }
+        if (resEclProduct.code === 200) {
+          setEclByProduct(resEclProduct.data.ecl_per_product);
+        }
+        if (resEclBranch.code === 200) {
+          setEclByBranch(resEclBranch.data.ecl_per_branch);
+        }
+        if (resEclAkad.code === 200) {
+          setEclByAkad(resEclAkad.data.ecl_per_akad);
+        }
       } catch (error) {
         console.error("Dashboard data fetch failed:", error);
       } finally {
@@ -172,16 +185,14 @@ export default function Dashboard() {
 
   /* ====== Chart Data Preparation ====== */
 
-  // 1. Chart Branch (Real Data - Apa Adanya)
+  // 1. Chart Branch
   const dataBranch: ChartData<"bar"> = useMemo(
     () => ({
-      // Menggunakan key "cab" langsung dari API
-      labels: eclByBranch.map((d) => `Cab ${d.cab}`),
+      labels: eclByBranch.map((d) => `Branch ${d.branch}`),
       datasets: [
         {
           label: "ECL Amount",
-          // Parsing string float "6570738801353.5800" menjadi number
-          data: eclByBranch.map((d) => parseFloat(d.total_ecl)),
+          data: eclByBranch.map((d) => d.total_ecl),
           backgroundColor: "#7CB5FF",
           borderRadius: 8,
           borderSkipped: false,
@@ -242,21 +253,21 @@ export default function Dashboard() {
   );
 
   // 5. Chart Akad
-const dataAkad: ChartData<"bar"> = useMemo(
-  () => ({
-    labels: eclByAkad.map((d) => d.akad),
-    datasets: [
-      {
-        label: "Total ECL",
-        data: eclByAkad.map((d) => parseFloat(d.total_ecl.toString())),
-        backgroundColor: "#FBBF24", // Warna Amber/Kuning agar variatif
-        borderRadius: 8,
-        borderSkipped: false,
-      },
-    ],
-  }),
-  [eclByAkad]
-);
+  const dataAkad: ChartData<"bar"> = useMemo(
+    () => ({
+      labels: eclByAkad.map((d) => d.akad),
+      datasets: [
+        {
+          label: "Total ECL",
+          data: eclByAkad.map((d) => d.total_ecl),
+          backgroundColor: "#FBBF24", // Warna Amber/Kuning agar variatif
+          borderRadius: 8,
+          borderSkipped: false,
+        },
+      ],
+    }),
+    [eclByAkad]
+  );
 
   /* ====== Chart Options ====== */
   const commonBarOptions: ChartOptions<"bar"> = {

@@ -58,7 +58,7 @@ function roleNamesFromApi(input?: RoleApi[]): string[] {
 class AuthService extends BaseApiService {
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     const response = await this.post<ApiResponse<LoginResponse>>(
-      "login",
+      "auth/login",
       credentials
     );
     if (response.code === 200 && response.data.token) {

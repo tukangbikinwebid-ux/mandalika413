@@ -1,6 +1,6 @@
 export interface PSAK413Detail {
   id: number;
-  psak413_import_id: string;
+  psak413_import_id: number;
   product_id: number;
   segment_id: number | null;
   stage_id: number | null;
@@ -28,9 +28,10 @@ export interface PSAK413Detail {
   psak413_amount: number;
   created_at: string;
   updated_at: string;
-  product_name: string;
-  product_code: string;
-  segment_name: string | null;
+  // Relations from API
+  Psak413Import?: unknown | null;
+  Product?: unknown | null;
+  Segment?: unknown | null;
 }
 
 export interface PSAK413DetailParams {

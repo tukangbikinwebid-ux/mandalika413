@@ -3,6 +3,18 @@ import type { ApiResponse } from "../base";
 
 /** --- Interfaces --- */
 
+// Interface untuk ProductCategory dalam response Product
+export interface ProductCategoryRelation {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  status: boolean | number | string;
+  created_at: string;
+  updated_at: string;
+  Products?: unknown;
+}
+
 // Interface Utama Product
 export interface Product {
   id: number;
@@ -10,12 +22,12 @@ export interface Product {
   name: string;
   code: string;
   description: string;
-  status: boolean | number;
+  status: boolean | number | string;
   created_at: string;
   updated_at: string;
-  // Field tambahan dari relation (biasanya ada di response GET ALL)
-  product_category_name?: string;
-  product_category_code?: string;
+  // Field relation dari API
+  ProductCategory?: ProductCategoryRelation | null;
+  Segments?: unknown;
 }
 
 // Interface untuk Parameter Query
@@ -23,32 +35,37 @@ export interface ProductParams {
   page?: number;
   paginate?: number;
   search?: string;
-  product_category_id?: number | string; // Tambahan opsional jika ingin filter by category
+  order_by?: string;
+  order?: "asc" | "desc";
+  product_category_id?: number | string;
 }
 
 // Interface untuk Payload Create
-// Omit field yang auto-generated atau read-only
-export type CreateProductRequest = Omit<
-  Product,
-  | "id"
-  | "created_at"
-  | "updated_at"
-  | "product_category_name"
-  | "product_category_code"
->;
+export interface CreateProductRequest {
+  product_category_id?: number;
+  code: string;
+  name: string;
+  description?: string;
+  status: string; // "1" or "0"
+}
 
 // Interface untuk Payload Update
 export type UpdateProductRequest = Partial<CreateProductRequest>;
 
-// Interface untuk Response Pagination
-export interface PaginatedResult<T> {
-  data: T[];
+// Interface untuk Pagination Meta
+export interface PaginationMeta {
+  total: number;
+  per_page: number;
   current_page: number;
   last_page: number;
-  per_page: number;
-  total: number;
-  from?: number;
-  to?: number;
+  next_page: number;
+  prev_page: number;
+  data: Product[];
+}
+
+// Interface untuk Paginated Result
+export interface PaginatedResult {
+  pagination: PaginationMeta;
 }
 
 /** --- Service Class --- */
@@ -59,17 +76,18 @@ class ProductService extends BaseApiService {
 
   /**
    * Get All Data dengan Pagination dan Search
-   * URL: /master/products?paginate=10&search=&page=1
+   * URL: /master/products?paginate=10&search=&page=1&order_by=created_at&order=desc
    */
   async getAll(
     params?: ProductParams
-  ): Promise<ApiResponse<PaginatedResult<Product>>> {
+  ): Promise<ApiResponse<PaginatedResult>> {
     const query = new URLSearchParams();
 
     if (params?.page) query.append("page", String(params.page));
     if (params?.paginate) query.append("paginate", String(params.paginate));
     if (params?.search) query.append("search", params.search);
-    // Jika backend mendukung filter by category_id
+    if (params?.order_by) query.append("order_by", params.order_by);
+    if (params?.order) query.append("order", params.order);
     if (params?.product_category_id) {
       query.append("product_category_id", String(params.product_category_id));
     }
@@ -79,7 +97,7 @@ class ProductService extends BaseApiService {
       ? `${this.resource}?${queryString}`
       : this.resource;
 
-    return this.get<ApiResponse<PaginatedResult<Product>>>(endpoint);
+    return this.get<ApiResponse<PaginatedResult>>(endpoint);
   }
 
   /**

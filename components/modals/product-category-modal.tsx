@@ -46,7 +46,7 @@ export default function ProductCategoryModal({
     name: "",
     code: "",
     description: "",
-    status: 1, // Default active
+    status: "1", // Default active
   });
 
   // --- Fetch Data ---
@@ -57,11 +57,15 @@ export default function ProductCategoryModal({
         page,
         paginate,
         search,
+        order_by: "created_at",
+        order: "desc",
       });
       if (res.code === 200) {
-        setData(res.data.data);
-        setTotal(res.data.total);
-        onUpdateTotal(res.data.total); // Update dashboard count
+        // Handle nested pagination structure
+        const paginationData = res.data.pagination;
+        setData(paginationData.data);
+        setTotal(paginationData.total);
+        onUpdateTotal(paginationData.total); // Update dashboard count
       }
     } catch (error) {
       console.error("Failed to fetch", error);
@@ -89,18 +93,26 @@ export default function ProductCategoryModal({
 
   const prepareEdit = (item: ProductCategory) => {
     setEditingId(item.id);
+    // Convert boolean/number status to string format ("1" or "0")
+    const statusValue =
+      item.status === true ||
+      item.status === 1 ||
+      item.status === "1" ||
+      item.status === "true"
+        ? "1"
+        : "0";
     setFormData({
       name: item.name,
       code: item.code,
-      description: item.description,
-      status: Number(item.status),
+      description: item.description || "",
+      status: statusValue,
     });
     setView("form");
   };
 
   const prepareCreate = () => {
     setEditingId(null);
-    setFormData({ name: "", code: "", description: "", status: 1 });
+    setFormData({ name: "", code: "", description: "", status: "1" });
     setView("form");
   };
 
@@ -108,10 +120,20 @@ export default function ProductCategoryModal({
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Prepare payload - ensure status is string and description is optional
+      const payload: CreateProductCategoryRequest = {
+        name: formData.name,
+        code: formData.code,
+        status: formData.status,
+        ...(formData.description?.trim()
+          ? { description: formData.description.trim() }
+          : {}),
+      };
+
       if (editingId) {
-        await api.productCategory.update(editingId, formData);
+        await api.productCategory.update(editingId, payload);
       } else {
-        await api.productCategory.create(formData);
+        await api.productCategory.create(payload);
       }
       setView("list");
       fetchData();
@@ -357,17 +379,17 @@ export default function ProductCategoryModal({
                     Status
                   </label>
                   <select
-                    value={Number(formData.status)}
+                    value={formData.status}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: Number(e.target.value),
+                        status: e.target.value,
                       })
                     }
                     className="w-full px-4 py-3.5 rounded-xl bg-gray-100 border-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all font-medium text-gray-900 cursor-pointer"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
 

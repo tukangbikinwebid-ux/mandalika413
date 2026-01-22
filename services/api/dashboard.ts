@@ -3,11 +3,11 @@ import type { ApiResponse } from "./base";
 import type {
   DashboardParams,
   TotalEclData,
-  EclPerStageData,
-  EclPerSegmentData,
-  EclPerProductData,
-  TotalEclPerBranch, // Pastikan interface ini sudah ada di file types
-  TotalEclPerAkad,
+  EclPerStageResponse,
+  EclPerSegmentResponse,
+  EclPerProductResponse,
+  EclPerBranchResponse,
+  EclPerAkadResponse,
 } from "@/lib/types/dashboard";
 
 class DashboardService extends BaseApiService {
@@ -42,9 +42,9 @@ class DashboardService extends BaseApiService {
    */
   async getEclPerStage(
     params?: DashboardParams
-  ): Promise<ApiResponse<EclPerStageData[]>> {
+  ): Promise<ApiResponse<EclPerStageResponse>> {
     const queryString = this.buildQuery(params);
-    return this.get<ApiResponse<EclPerStageData[]>>(
+    return this.get<ApiResponse<EclPerStageResponse>>(
       `${this.resource}/ecl-per-stage${queryString ? `?${queryString}` : ""}`
     );
   }
@@ -55,9 +55,9 @@ class DashboardService extends BaseApiService {
    */
   async getEclPerSegment(
     params?: DashboardParams
-  ): Promise<ApiResponse<EclPerSegmentData[]>> {
+  ): Promise<ApiResponse<EclPerSegmentResponse>> {
     const queryString = this.buildQuery(params);
-    return this.get<ApiResponse<EclPerSegmentData[]>>(
+    return this.get<ApiResponse<EclPerSegmentResponse>>(
       `${this.resource}/ecl-per-segment${queryString ? `?${queryString}` : ""}`
     );
   }
@@ -68,9 +68,9 @@ class DashboardService extends BaseApiService {
    */
   async getEclPerProduct(
     params?: DashboardParams
-  ): Promise<ApiResponse<EclPerProductData[]>> {
+  ): Promise<ApiResponse<EclPerProductResponse>> {
     const queryString = this.buildQuery(params);
-    return this.get<ApiResponse<EclPerProductData[]>>(
+    return this.get<ApiResponse<EclPerProductResponse>>(
       `${this.resource}/ecl-per-product${queryString ? `?${queryString}` : ""}`
     );
   }
@@ -81,9 +81,9 @@ class DashboardService extends BaseApiService {
    */
   async getEclPerBranch(
     params?: DashboardParams
-  ): Promise<ApiResponse<TotalEclPerBranch[]>> {
+  ): Promise<ApiResponse<EclPerBranchResponse>> {
     const queryString = this.buildQuery(params);
-    return this.get<ApiResponse<TotalEclPerBranch[]>>(
+    return this.get<ApiResponse<EclPerBranchResponse>>(
       `${this.resource}/ecl-per-branch${queryString ? `?${queryString}` : ""}`
     );
   }
@@ -94,9 +94,9 @@ class DashboardService extends BaseApiService {
    */
   async getEclPerAkad(
     params?: DashboardParams
-  ): Promise<ApiResponse<TotalEclPerAkad[]>> {
+  ): Promise<ApiResponse<EclPerAkadResponse>> {
     const queryString = this.buildQuery(params);
-    return this.get<ApiResponse<TotalEclPerAkad[]>>(
+    return this.get<ApiResponse<EclPerAkadResponse>>(
       `${this.resource}/ecl-per-akad${queryString ? `?${queryString}` : ""}`
     );
   }
