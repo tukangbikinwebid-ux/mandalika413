@@ -53,7 +53,7 @@ function LoginPage() {
       await update();
 
       // Redirect to dashboard
-      router.replace("/");
+      router.replace("/dashboard");
       router.refresh();
     } catch (err) {
       setError(getErrorMessage(err));

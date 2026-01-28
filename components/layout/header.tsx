@@ -75,7 +75,7 @@ export default function Header({
   };
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home, href: "/" },
+    { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
     { id: "process", label: "Process", icon: Zap, href: "/process" },
     { id: "post-gl", label: "Posting GL", icon: ChartArea, href: "/post-gl" },
   ] as const;
