@@ -42,20 +42,20 @@ export default function Header({
   useEffect(() => {
     const checkUnread = async () => {
       try {
-        const res = await api.notification.getAll({ page: 1, paginate: 5 });
-        if (res.code === 200 && res.data.data) {
-          const unread = res.data.data.some((n) => n.read_at === null);
-          setHasUnread(unread);
-        }
+        // const res = await api.notification.getAll({ page: 1, paginate: 5 });
+        // if (res.code === 200 && res.data.data) {
+        //   const unread = res.data.data.some((n) => n.read_at === null);
+        //   setHasUnread(unread);
+        // }
       } catch (error) {
         console.error("Failed to check notifications");
       }
     };
 
     if (session) {
-      checkUnread();
-      const interval = setInterval(checkUnread, 60000);
-      return () => clearInterval(interval);
+      // checkUnread();
+      // const interval = setInterval(checkUnread, 60000);
+      // return () => clearInterval(interval);
     }
   }, [session]);
 
@@ -208,16 +208,6 @@ export default function Header({
 
         {/* Right Section: Notif, Profile & Hamburger */}
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Notification Icon */}
-          <button
-            onClick={() => router.push("/notifications")}
-            className="relative p-2 md:p-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl border border-white/30 transition-all duration-300 hover:scale-105 shadow-lg group"
-          >
-            <Bell className="w-5 h-5 text-white group-hover:text-yellow-100" />
-            {hasUnread && (
-              <span className="absolute top-2 right-2.5 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
-            )}
-          </button>
 
           {/* Profile Dropdown */}
           <div className="relative">

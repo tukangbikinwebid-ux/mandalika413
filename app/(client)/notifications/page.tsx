@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,25 +10,27 @@ import {
   ChevronRight,
   CheckCheck,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/services/api";
 import type { Notification } from "@/services/api/notification";
 
 export default function NotificationPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalData, setTotalData] = useState(0);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const perPage = 10;
 
-  // --- Fetch Notifications ---
-  const fetchNotifications = async () => {
+  // --- Fetch Notifications (Manual) ---
+  const fetchNotifications = async (pageNum?: number) => {
     setLoading(true);
     try {
       const res = await api.notification.getAll({
-        page,
+        page: pageNum || page,
         paginate: perPage,
         orderBy: "updated_at",
         order: "desc",
@@ -38,6 +40,7 @@ export default function NotificationPage() {
         setNotifications(res.data.data);
         setTotalData(res.data.total);
         setTotalPages(res.data.last_page);
+        setHasLoaded(true);
       }
     } catch (error) {
       console.error("Gagal mengambil notifikasi:", error);
@@ -46,10 +49,13 @@ export default function NotificationPage() {
     }
   };
 
-  useEffect(() => {
-    fetchNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  // Fetch on page change only if already loaded
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    if (hasLoaded) {
+      fetchNotifications(newPage);
+    }
+  };
 
   // --- Actions ---
 
@@ -118,19 +124,35 @@ export default function NotificationPage() {
               Pusat informasi dan unduhan laporan Anda
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={handleMarkAllAsRead}
-            disabled={loadingAction || notifications.every((n) => n.read_at)}
-            className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-          >
-            {loadingAction ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCheck className="w-4 h-4" />
-            )}
-            Tandai Semua Dibaca
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fetchNotifications()}
+              disabled={loading}
+              className="gap-2 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Muat Data
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              disabled={loadingAction || !hasLoaded || notifications.every((n) => n.read_at)}
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+            >
+              {loadingAction ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCheck className="w-4 h-4" />
+              )}
+              Tandai Semua Dibaca
+            </Button>
+          </div>
         </div>
 
         {/* Content Card */}
@@ -163,6 +185,20 @@ export default function NotificationPage() {
                           <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
                           <p className="text-gray-500 font-medium">
                             Memuat notifikasi...
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : !hasLoaded ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-6 py-12 text-center"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <RefreshCw className="w-10 h-10 text-gray-300" />
+                          <p className="text-gray-500 font-medium">
+                            Klik tombol &quot;Muat Data&quot; untuk memuat notifikasi
                           </p>
                         </div>
                       </td>
@@ -287,8 +323,8 @@ export default function NotificationPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={page <= 1}
-                  onClick={() => setPage((prev) => prev - 1)}
+                  disabled={page <= 1 || loading || !hasLoaded}
+                  onClick={() => handlePageChange(page - 1)}
                   className="gap-1 pl-2.5"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -297,8 +333,8 @@ export default function NotificationPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((prev) => prev + 1)}
+                  disabled={page >= totalPages || loading || !hasLoaded}
+                  onClick={() => handlePageChange(page + 1)}
                   className="gap-1 pr-2.5"
                 >
                   Berikutnya

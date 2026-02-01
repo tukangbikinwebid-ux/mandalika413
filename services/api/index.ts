@@ -43,6 +43,9 @@ export type {
   PaginatedResult,
   PaginationMeta,
   NestedPaginatedResult,
+  ImportError,
+  ImportErrorsResponse,
+  ImportErrorsParams,
 } from "@/lib/types/psak413-imports";
 
 export type {

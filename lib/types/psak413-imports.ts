@@ -74,3 +74,32 @@ export interface PaginationMeta<T> {
 export interface NestedPaginatedResult<T> {
   pagination: PaginationMeta<T>;
 }
+
+// Import Error types
+export interface ImportError {
+  id: number;
+  source: string;
+  reference_id: number;
+  row_number: number;
+  field_name: string;
+  field_value: string;
+  error_message: string;
+  row_data: string;
+}
+
+export interface ImportErrorPagination {
+  current_page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface ImportErrorsResponse {
+  data: ImportError[];
+  pagination: ImportErrorPagination;
+}
+
+export interface ImportErrorsParams {
+  page?: number;
+  paginate?: number;
+}

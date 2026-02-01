@@ -7,6 +7,8 @@ import type {
   PSAK413ImportParams,
   PaginatedResult,
   CreateImportRequest,
+  ImportErrorsResponse,
+  ImportErrorsParams,
 } from "@/lib/types/psak413-imports";
 
 class PSAK413ImportService extends BaseApiService {
@@ -68,6 +70,19 @@ class PSAK413ImportService extends BaseApiService {
 
   async deleteImport(id: string): Promise<ApiResponse<null>> {
     return this.delete<ApiResponse<null>>(`${this.resource}/${id}`);
+  }
+
+  async getErrors(
+    id: string | number,
+    params?: ImportErrorsParams
+  ): Promise<ApiResponse<ImportErrorsResponse>> {
+    const query = new URLSearchParams();
+    query.append("page", String(params?.page || 1));
+    query.append("paginate", String(params?.paginate || 50));
+
+    return this.get<ApiResponse<ImportErrorsResponse>>(
+      `${this.resource}/${id}/errors?${query.toString()}`
+    );
   }
 
   getTemplateExcelUrl(): string {

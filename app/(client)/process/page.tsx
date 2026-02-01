@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { api } from "@/services/api";
-import type { PSAK413Import, CreateImportRequest } from "@/services/api";
+import type { PSAK413Import, CreateImportRequest, ImportError, ImportErrorsResponse } from "@/services/api";
 import {
   Loader2,
   FileSpreadsheet,
@@ -22,6 +22,14 @@ import {
   TrendingUp,
   FileCheck,
   Zap,
+  FileWarning,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Hash,
+  Database,
+  FileX2,
+  Info,
 } from "lucide-react";
 
 // --- Constants for Local Storage ---
@@ -108,6 +116,15 @@ export default function ProcessPage() {
 
   // Error Report State
   const [importErrors, setImportErrors] = useState<string | null>(null);
+  
+  // Detailed Import Errors
+  const [detailedErrors, setDetailedErrors] = useState<ImportError[]>([]);
+  const [detailedErrorsTotal, setDetailedErrorsTotal] = useState(0);
+  const [detailedErrorsPage, setDetailedErrorsPage] = useState(1);
+  const [detailedErrorsTotalPages, setDetailedErrorsTotalPages] = useState(1);
+  const [loadingDetailedErrors, setLoadingDetailedErrors] = useState(false);
+  const [showErrorsModal, setShowErrorsModal] = useState(false);
+  const [expandedErrorRow, setExpandedErrorRow] = useState<number | null>(null);
 
   // Polling state
   const [isPolling, setIsPolling] = useState(false);
@@ -192,6 +209,32 @@ export default function ProcessPage() {
     []
   );
 
+  // --- 1.5 Fetch Detailed Errors from Backend ---
+  const fetchDetailedErrors = useCallback(
+    async (importId: number, pageNum: number = 1) => {
+      setLoadingDetailedErrors(true);
+
+      try {
+        const res = await api.psak413Import.getErrors(importId, {
+          page: pageNum,
+          paginate: 50,
+        });
+
+        if (res.code === 200 && res.data) {
+          setDetailedErrors(res.data.data || []);
+          setDetailedErrorsTotal(res.data.pagination?.total || 0);
+          setDetailedErrorsPage(res.data.pagination?.current_page || 1);
+          setDetailedErrorsTotalPages(res.data.pagination?.total_pages || 1);
+        }
+      } catch (error) {
+        console.error("Failed to fetch detailed errors", error);
+      } finally {
+        setLoadingDetailedErrors(false);
+      }
+    },
+    []
+  );
+
   // --- 2. Poll Import Status every 5 seconds ---
   const startPolling = useCallback(
     (importId: number) => {
@@ -223,6 +266,11 @@ export default function ProcessPage() {
 
               // Fetch details table
               await fetchDetailsFromServer(importId, 1);
+
+              // Fetch detailed errors if there are failed rows
+              if (data.failed_rows > 0) {
+                await fetchDetailedErrors(importId, 1);
+              }
             }
           }
         } catch (error) {
@@ -258,6 +306,10 @@ export default function ProcessPage() {
               startPolling(data.id);
             } else {
               await fetchDetailsFromServer(data.id, 1);
+              // Fetch detailed errors if there are failed rows
+              if (data.failed_rows > 0) {
+                await fetchDetailedErrors(data.id, 1);
+              }
             }
           } else {
             localStorage.removeItem(LS_KEY_IMPORT_ID);
@@ -414,6 +466,14 @@ export default function ProcessPage() {
     setShowSuccess(false);
     setImportErrors(null);
 
+    // Clear detailed errors
+    setDetailedErrors([]);
+    setDetailedErrorsTotal(0);
+    setDetailedErrorsPage(1);
+    setDetailedErrorsTotalPages(1);
+    setShowErrorsModal(false);
+    setExpandedErrorRow(null);
+
     setTableData([]);
     setLocalFileName("");
     setFileToUpload(null);
@@ -444,6 +504,28 @@ export default function ProcessPage() {
   const errorLogs = importErrors
     ? importErrors.split("\n").filter((line) => line.trim() !== "")
     : [];
+
+  // Handle error pagination
+  const handleErrorPageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > detailedErrorsTotalPages) return;
+    if (currentImport?.id) {
+      fetchDetailedErrors(currentImport.id, newPage);
+    }
+  };
+
+  // Toggle expanded error row
+  const toggleExpandedError = (id: number) => {
+    setExpandedErrorRow(expandedErrorRow === id ? null : id);
+  };
+
+  // Parse row_data JSON safely
+  const parseRowData = (rowData: string): string[] => {
+    try {
+      return JSON.parse(rowData);
+    } catch {
+      return [rowData];
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/50 p-4 md:p-8 font-sans text-slate-800">
@@ -679,25 +761,66 @@ export default function ProcessPage() {
             </div>
           </div>
 
-          {/* Error Log Container */}
-          {errorLogs.length > 0 && (
-            <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50 p-4 shadow-lg max-h-[400px] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex items-center gap-2 mb-3 text-red-700">
-                <AlertTriangle className="w-5 h-5" />
-                <h3 className="font-bold text-sm">
-                  Log Error ({currentImport?.failed_rows})
-                </h3>
+          {/* Error Summary Container */}
+          {currentImport && currentImport.failed_rows > 0 && (
+            <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-rose-50 p-4 shadow-lg animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-red-700">
+                  <FileWarning className="w-5 h-5" />
+                  <h3 className="font-bold text-sm">
+                    Error Import ({currentImport.failed_rows})
+                  </h3>
+                </div>
               </div>
-              <div className="space-y-2">
-                {errorLogs.map((log, idx) => (
+
+              {/* Quick Summary */}
+              <div className="space-y-3 mb-4">
+                <div className="bg-white rounded-xl p-3 border border-red-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Total Error</span>
+                    <span className="text-lg font-black text-red-600">
+                      {detailedErrorsTotal || currentImport.failed_rows}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Preview first 3 errors */}
+                {detailedErrors.slice(0, 3).map((err) => (
                   <div
-                    key={idx}
-                    className="text-xs bg-white p-3 rounded-lg border border-red-100 text-red-600 font-mono break-words shadow-sm"
+                    key={err.id}
+                    className="text-xs bg-white p-3 rounded-lg border border-red-100 shadow-sm"
                   >
-                    {log}
+                    <div className="flex items-center gap-2 text-red-600 font-bold mb-1">
+                      <Hash className="w-3 h-3" />
+                      Baris {err.row_number}
+                    </div>
+                    <p className="text-gray-600 truncate">{err.error_message}</p>
                   </div>
                 ))}
+
+                {/* Legacy error logs display */}
+                {errorLogs.length > 0 && detailedErrors.length === 0 && (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {errorLogs.slice(0, 3).map((log, idx) => (
+                      <div
+                        key={idx}
+                        className="text-xs bg-white p-3 rounded-lg border border-red-100 text-red-600 font-mono break-words shadow-sm"
+                      >
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* View All Errors Button */}
+              <button
+                onClick={() => setShowErrorsModal(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all duration-200 hover:scale-[1.02] shadow-lg"
+              >
+                <Eye className="w-4 h-4" />
+                Lihat Semua Error
+              </button>
             </div>
           )}
         </div>
@@ -1048,6 +1171,209 @@ export default function ProcessPage() {
             >
               Tutup & Lihat Data
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Errors Modal */}
+      {showErrorsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border-2 border-gray-100 animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b-2 border-gray-100 bg-gradient-to-r from-red-50 to-rose-50 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg">
+                    <FileX2 className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900">
+                      Detail Error Import
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {detailedErrorsTotal} error ditemukan saat proses import
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowErrorsModal(false)}
+                  className="p-2 rounded-xl hover:bg-red-100 text-gray-400 hover:text-red-600 transition-all duration-200"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingDetailedErrors ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-red-200 rounded-full animate-spin border-t-red-500" />
+                    <Loader2 className="w-8 h-8 text-red-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                  </div>
+                  <p className="mt-4 text-gray-500">Memuat data error...</p>
+                </div>
+              ) : detailedErrors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                  <Info className="w-16 h-16 mb-4" />
+                  <p className="text-lg font-medium">Tidak ada data error detail</p>
+                  <p className="text-sm">Coba refresh atau lihat log di sidebar</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {detailedErrors.map((error) => (
+                    <div
+                      key={error.id}
+                      className="border-2 border-gray-100 rounded-2xl overflow-hidden hover:border-red-200 transition-all duration-200"
+                    >
+                      {/* Error Header */}
+                      <button
+                        onClick={() => toggleExpandedError(error.id)}
+                        className="w-full px-5 py-4 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between hover:from-red-50 hover:to-rose-50 transition-all duration-200"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-600 font-bold">
+                              <Hash className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                              <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">
+                                Baris
+                              </span>
+                              <p className="text-lg font-black text-gray-800">
+                                {error.row_number}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="h-10 w-px bg-gray-200" />
+                          
+                          <div className="text-left">
+                            <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">
+                              Field
+                            </span>
+                            <p className="text-sm font-bold text-red-600">
+                              {error.field_name}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <span className="hidden sm:block text-sm text-gray-600 max-w-[300px] truncate text-right">
+                            {error.error_message}
+                          </span>
+                          {expandedErrorRow === error.id ? (
+                            <ChevronUp className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Expanded Content */}
+                      {expandedErrorRow === error.id && (
+                        <div className="px-5 py-4 bg-white border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                          {/* Error Message */}
+                          <div className="mb-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-xs text-red-400 uppercase tracking-wider font-bold mb-1">
+                                  Pesan Error
+                                </p>
+                                <p className="text-sm text-red-700 font-medium">
+                                  {error.error_message}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Error Details Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            <div className="p-3 bg-gray-50 rounded-xl">
+                              <p className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">
+                                Sumber
+                              </p>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {error.source}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-xl">
+                              <p className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">
+                                Field Name
+                              </p>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {error.field_name}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-amber-50 rounded-xl">
+                              <p className="text-xs text-amber-500 uppercase tracking-wider font-bold mb-1">
+                                Nilai Yang Dikirim
+                              </p>
+                              <p className="text-sm font-mono font-bold text-amber-700 break-all">
+                                {error.field_value || "-"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Row Data */}
+                          {error.row_data && (
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                              <div className="flex items-center gap-2 mb-3 text-slate-600">
+                                <Database className="w-4 h-4" />
+                                <p className="text-xs uppercase tracking-wider font-bold">
+                                  Data Baris Lengkap
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {parseRowData(error.row_data).map((value, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-white rounded-lg border border-slate-200 text-xs font-mono text-slate-600 truncate max-w-[150px]"
+                                    title={String(value)}
+                                  >
+                                    {String(value) || "-"}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer with Pagination */}
+            <div className="p-4 border-t-2 border-gray-100 bg-gray-50 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Menampilkan {detailedErrors.length} dari {detailedErrorsTotal} error
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleErrorPageChange(detailedErrorsPage - 1)}
+                    disabled={detailedErrorsPage === 1 || loadingDetailedErrors}
+                    className="px-3 py-2 rounded-lg text-sm font-bold bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-medium text-gray-600 min-w-[100px] text-center bg-white px-3 py-2 rounded-lg border border-gray-200">
+                    Page {detailedErrorsPage} / {detailedErrorsTotalPages || 1}
+                  </span>
+                  <button
+                    onClick={() => handleErrorPageChange(detailedErrorsPage + 1)}
+                    disabled={detailedErrorsPage >= detailedErrorsTotalPages || loadingDetailedErrors}
+                    className="px-3 py-2 rounded-lg text-sm font-bold bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
