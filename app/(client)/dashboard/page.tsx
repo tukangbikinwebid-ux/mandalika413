@@ -203,32 +203,47 @@ export default function Dashboard() {
   );
 
   // 2. Chart Stage
+  const stageColors = ["#3B82F6", "#F59E0B", "#EF4444", "#10B981", "#8B5CF6"];
+  const totalStageEcl = useMemo(
+    () => eclByStage.reduce((sum, d) => sum + d.total_ecl, 0),
+    [eclByStage]
+  );
+
   const dataStage: ChartData<"doughnut"> = useMemo(
     () => ({
       labels: eclByStage.map((d) => `Stage ${d.stage}`),
       datasets: [
         {
           data: eclByStage.map((d) => d.total_ecl),
-          backgroundColor: ["#7CB5FF", "#374151", "#86EFAC"],
-          borderWidth: 0,
-          hoverOffset: 6,
+          backgroundColor: stageColors.slice(0, eclByStage.length),
+          borderWidth: 3,
+          borderColor: "#ffffff",
+          hoverOffset: 8,
+          hoverBorderWidth: 0,
         },
       ],
     }),
     [eclByStage]
   );
 
-  // 3. Chart Segment
-  const dataSegment: ChartData<"bar"> = useMemo(
+  // 3. Chart Segment (Doughnut)
+  const segmentColors = ["#8B5CF6", "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1", "#14B8A6"];
+  const totalSegmentEcl = useMemo(
+    () => eclBySegment.reduce((sum, d) => sum + d.total_ecl, 0),
+    [eclBySegment]
+  );
+
+  const dataSegment: ChartData<"doughnut"> = useMemo(
     () => ({
       labels: eclBySegment.map((d) => d.segment),
       datasets: [
         {
-          label: "Total ECL",
           data: eclBySegment.map((d) => d.total_ecl),
-          backgroundColor: "#7CB5FF",
-          borderRadius: 8,
-          borderSkipped: false,
+          backgroundColor: segmentColors.slice(0, eclBySegment.length),
+          borderWidth: 3,
+          borderColor: "#ffffff",
+          hoverOffset: 8,
+          hoverBorderWidth: 0,
         },
       ],
     }),
@@ -349,16 +364,50 @@ export default function Dashboard() {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: "right",
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8 },
+        display: false, // Hide default legend, we'll create custom one
       },
       tooltip: {
+        backgroundColor: "rgba(17, 24, 39, 0.95)",
+        titleFont: { size: 14, weight: "bold" },
+        bodyFont: { size: 13 },
+        padding: 12,
+        cornerRadius: 8,
         callbacks: {
-          label: (ctx) => `${ctx.label}: ${rupiahPrecise(Number(ctx.parsed))}`,
+          label: (ctx) => {
+            const value = Number(ctx.parsed);
+            const percentage = totalStageEcl > 0 ? ((value / totalStageEcl) * 100).toFixed(2) : "0";
+            return `${rupiahPrecise(value)} (${percentage}%)`;
+          },
         },
       },
     },
-    cutout: "58%",
+    cutout: "65%",
+  };
+
+  // Options untuk Segment chart (Doughnut)
+  const optionsSegment: ChartOptions<"doughnut"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: "rgba(17, 24, 39, 0.95)",
+        titleFont: { size: 14, weight: "bold" },
+        bodyFont: { size: 13 },
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => {
+            const value = Number(ctx.parsed);
+            const percentage = totalSegmentEcl > 0 ? ((value / totalSegmentEcl) * 100).toFixed(2) : "0";
+            return `${rupiahPrecise(value)} (${percentage}%)`;
+          },
+        },
+      },
+    },
+    cutout: "65%",
   };
 
   /* =================== UI =================== */
@@ -486,8 +535,67 @@ export default function Dashboard() {
               title="Expected Credit Loss by Stage"
               currentDate={`${dateRange.from} - ${dateRange.to}`}
             >
-              <div className="h-full w-full flex justify-center">
-                <Doughnut data={dataStage} options={optionsStage} />
+              <div className="h-full w-full flex flex-col">
+                {/* Chart Section */}
+                <div className="flex-1 flex items-center justify-center min-h-[200px] relative">
+                  <div className="w-[200px] h-[200px]">
+                    <Doughnut data={dataStage} options={optionsStage} />
+                  </div>
+                  {/* Center Total */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total</p>
+                      <p className="text-sm font-black text-gray-900">
+                        {new Intl.NumberFormat("id-ID", {
+                          notation: "compact",
+                          compactDisplay: "short",
+                          maximumFractionDigits: 1,
+                        }).format(totalStageEcl)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legend / Breakdown Section */}
+                <div className="mt-4 space-y-2">
+                  {eclByStage.map((stage, idx) => {
+                    const percentage = totalStageEcl > 0 
+                      ? ((stage.total_ecl / totalStageEcl) * 100).toFixed(1) 
+                      : "0";
+                    return (
+                      <div
+                        key={stage.stage}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-4 h-4 rounded-full shadow-sm"
+                            style={{ backgroundColor: stageColors[idx] || "#6B7280" }}
+                          />
+                          <span className="font-bold text-gray-800">Stage {stage.stage}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-semibold text-gray-600">
+                            {new Intl.NumberFormat("id-ID", {
+                              notation: "compact",
+                              compactDisplay: "short",
+                              maximumFractionDigits: 2,
+                            }).format(stage.total_ecl)}
+                          </span>
+                          <span 
+                            className="text-xs font-bold px-2 py-1 rounded-lg"
+                            style={{ 
+                              backgroundColor: `${stageColors[idx]}20`,
+                              color: stageColors[idx]
+                            }}
+                          >
+                            {percentage}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
           </div>
@@ -496,9 +604,70 @@ export default function Dashboard() {
             title="Expected Credit Loss by Segment"
             currentDate={`${dateRange.from} - ${dateRange.to}`}
           >
-            <div className="h-full w-full overflow-x-auto">
-              <div className="min-w-[600px] h-full">
-                <Bar data={dataSegment} options={commonBarOptions} />
+            <div className="h-full w-full flex flex-col lg:flex-row gap-6">
+              {/* Chart Section */}
+              <div className="flex-1 flex items-center justify-center min-h-[250px] relative">
+                <div className="w-[220px] h-[220px]">
+                  <Doughnut data={dataSegment} options={optionsSegment} />
+                </div>
+                {/* Center Total */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total</p>
+                    <p className="text-sm font-black text-gray-900">
+                      {new Intl.NumberFormat("id-ID", {
+                        notation: "compact",
+                        compactDisplay: "short",
+                        maximumFractionDigits: 1,
+                      }).format(totalSegmentEcl)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend / Breakdown Section */}
+              <div className="flex-1 space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {eclBySegment
+                  .slice()
+                  .sort((a, b) => b.total_ecl - a.total_ecl)
+                  .map((segment) => {
+                    const originalIdx = eclBySegment.findIndex(s => s.segment === segment.segment);
+                    const percentage = totalSegmentEcl > 0 
+                      ? ((segment.total_ecl / totalSegmentEcl) * 100).toFixed(1) 
+                      : "0";
+                    return (
+                      <div
+                        key={segment.segment}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-4 h-4 rounded-full shadow-sm flex-shrink-0"
+                            style={{ backgroundColor: segmentColors[originalIdx] || "#6B7280" }}
+                          />
+                          <span className="font-bold text-gray-800 text-sm">{segment.segment}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gray-600">
+                            {new Intl.NumberFormat("id-ID", {
+                              notation: "compact",
+                              compactDisplay: "short",
+                              maximumFractionDigits: 2,
+                            }).format(segment.total_ecl)}
+                          </span>
+                          <span 
+                            className="text-xs font-bold px-2 py-1 rounded-lg min-w-[50px] text-center"
+                            style={{ 
+                              backgroundColor: `${segmentColors[originalIdx]}20`,
+                              color: segmentColors[originalIdx]
+                            }}
+                          >
+                            {percentage}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           </Card>
