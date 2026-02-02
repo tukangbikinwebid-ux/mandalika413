@@ -228,18 +228,25 @@ export default function Dashboard() {
 
   // 3. Chart Segment (Doughnut)
   const segmentColors = ["#8B5CF6", "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1", "#14B8A6"];
-  const totalSegmentEcl = useMemo(
-    () => eclBySegment.reduce((sum, d) => sum + d.total_ecl, 0),
+  
+  // Filter out "Tidak Ada Segment" entries
+  const filteredSegments = useMemo(
+    () => eclBySegment.filter((d) => d.segment !== "Tidak Ada Segment"),
     [eclBySegment]
+  );
+
+  const totalSegmentEcl = useMemo(
+    () => filteredSegments.reduce((sum, d) => sum + d.total_ecl, 0),
+    [filteredSegments]
   );
 
   const dataSegment: ChartData<"doughnut"> = useMemo(
     () => ({
-      labels: eclBySegment.map((d) => d.segment),
+      labels: filteredSegments.map((d) => d.segment),
       datasets: [
         {
-          data: eclBySegment.map((d) => d.total_ecl),
-          backgroundColor: segmentColors.slice(0, eclBySegment.length),
+          data: filteredSegments.map((d) => d.total_ecl),
+          backgroundColor: segmentColors.slice(0, filteredSegments.length),
           borderWidth: 3,
           borderColor: "#ffffff",
           hoverOffset: 8,
@@ -247,7 +254,7 @@ export default function Dashboard() {
         },
       ],
     }),
-    [eclBySegment]
+    [filteredSegments]
   );
 
   // 4. Chart Product
@@ -627,11 +634,11 @@ export default function Dashboard() {
 
               {/* Legend / Breakdown Section */}
               <div className="flex-1 space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                {eclBySegment
+                {filteredSegments
                   .slice()
                   .sort((a, b) => b.total_ecl - a.total_ecl)
-                  .map((segment) => {
-                    const originalIdx = eclBySegment.findIndex(s => s.segment === segment.segment);
+                  .map((segment, idx) => {
+                    const originalIdx = filteredSegments.findIndex(s => s.segment === segment.segment);
                     const percentage = totalSegmentEcl > 0 
                       ? ((segment.total_ecl / totalSegmentEcl) * 100).toFixed(1) 
                       : "0";
