@@ -81,7 +81,7 @@ class PSAK413ImportService extends BaseApiService {
     query.append("paginate", String(params?.paginate || 50));
 
     return this.get<ApiResponse<ImportErrorsResponse>>(
-      `${this.resource}/${id}/errors?${query.toString()}`
+      `${this.resource}/${id}/error-logs?${query.toString()}`
     );
   }
 
