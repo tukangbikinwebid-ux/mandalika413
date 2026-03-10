@@ -60,3 +60,13 @@ export interface TotalEclPerAkad {
   akad: string;
   total_ecl: number;
 }
+
+// Dashboard All (Single Endpoint) Response
+export interface DashboardAllData {
+  total_ecl: number;
+  ecl_per_stage: EclPerStageData[];
+  ecl_per_segment: EclPerSegmentData[];
+  ecl_per_product: EclPerProductData[];
+  ecl_per_branch: TotalEclPerBranch[];
+  ecl_per_akad: TotalEclPerAkad[];
+}

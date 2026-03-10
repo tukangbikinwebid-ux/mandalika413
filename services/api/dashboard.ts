@@ -2,6 +2,7 @@ import BaseApiService from "./base";
 import type { ApiResponse } from "./base";
 import type {
   DashboardParams,
+  DashboardAllData,
   TotalEclData,
   EclPerStageResponse,
   EclPerSegmentResponse,
@@ -98,6 +99,19 @@ class DashboardService extends BaseApiService {
     const queryString = this.buildQuery(params);
     return this.get<ApiResponse<EclPerAkadResponse>>(
       `${this.resource}/ecl-per-akad${queryString ? `?${queryString}` : ""}`
+    );
+  }
+
+  /**
+   * Get All Dashboard Data (Single Endpoint - Realtime)
+   * URL: dashboard/all?from_date=...&to_date=...
+   */
+  async getAll(
+    params?: DashboardParams
+  ): Promise<ApiResponse<DashboardAllData>> {
+    const queryString = this.buildQuery(params);
+    return this.get<ApiResponse<DashboardAllData>>(
+      `${this.resource}/all${queryString ? `?${queryString}` : ""}`
     );
   }
 }

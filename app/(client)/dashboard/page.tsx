@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   ArrowUpRight,
   Calendar,
   DollarSign,
   Loader2,
+  RefreshCw,
   TrendingUp,
 } from "lucide-react";
 
@@ -114,60 +115,35 @@ export default function Dashboard() {
   const [eclByBranch, setEclByBranch] = useState<TotalEclPerBranch[]>([]);
   const [eclByAkad, setEclByAkad] = useState<TotalEclPerAkad[]>([]);
 
-  // --- FETCH DATA ---
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      setIsLoading(true);
-      try {
-        const dateParams = {
-          from_date: dateRange.from,
-          to_date: dateRange.to,
-        };
+  // --- FETCH DATA (Single Endpoint) ---
+  const loadDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.dashboard.getAll({
+        from_date: dateRange.from,
+        to_date: dateRange.to,
+      });
 
-        const [
-          resTotalEcl,
-          resEclStage,
-          resEclSegment,
-          resEclProduct,
-          resEclBranch,
-          resEclAkad,
-        ] = await Promise.all([
-          api.dashboard.getTotalEcl(dateParams),
-          api.dashboard.getEclPerStage(dateParams),
-          api.dashboard.getEclPerSegment(dateParams),
-          api.dashboard.getEclPerProduct(dateParams),
-          api.dashboard.getEclPerBranch(dateParams),
-          api.dashboard.getEclPerAkad(dateParams),
-        ]);
-
-        // Extract data from nested response structure
-        if (resTotalEcl.code === 200) {
-          setTotalEcl(resTotalEcl.data.total);
-        }
-        if (resEclStage.code === 200) {
-          setEclByStage(resEclStage.data.ecl_per_stage);
-        }
-        if (resEclSegment.code === 200) {
-          setEclBySegment(resEclSegment.data.ecl_per_segment);
-        }
-        if (resEclProduct.code === 200) {
-          setEclByProduct(resEclProduct.data.ecl_per_product);
-        }
-        if (resEclBranch.code === 200) {
-          setEclByBranch(resEclBranch.data.ecl_per_branch);
-        }
-        if (resEclAkad.code === 200) {
-          setEclByAkad(resEclAkad.data.ecl_per_akad);
-        }
-      } catch (error) {
-        console.error("Dashboard data fetch failed:", error);
-      } finally {
-        setIsLoading(false);
+      const statusCode = (res as any).status ?? res.code;
+      if (statusCode === 200) {
+        const data = res.data;
+        setTotalEcl(data.total_ecl);
+        setEclByStage(data.ecl_per_stage);
+        setEclBySegment(data.ecl_per_segment);
+        setEclByProduct(data.ecl_per_product);
+        setEclByBranch(data.ecl_per_branch);
+        setEclByAkad(data.ecl_per_akad);
       }
-    };
-
-    loadDashboardData();
+    } catch (error) {
+      console.error("Dashboard data fetch failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [dateRange]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   /* ======= Summary Stats ======= */
   const summaryStats = [
@@ -468,6 +444,15 @@ export default function Dashboard() {
             />
           </div>
         </div>
+
+        <button
+          onClick={loadDashboardData}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-2xl shadow-md hover:from-orange-600 hover:to-amber-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+          <span>{isLoading ? "Loading..." : "Refresh"}</span>
+        </button>
       </div>
 
       {/* Summary Stats Card */}
